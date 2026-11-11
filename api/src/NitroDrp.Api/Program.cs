@@ -23,7 +23,19 @@ builder.Services.AddSingleton<IFileStorage>(_ => new S3FileStorage(
     S3FileStorage.CreateClient(opts.S3, opts.S3.ServiceUrl),
     S3FileStorage.CreateClient(opts.S3, opts.S3.PublicServiceUrl ?? opts.S3.ServiceUrl),
     opts.S3));
-builder.Services.AddSingleton<IDownloadLinkSigner>(sp => new S3DownloadLinkSigner(sp.GetRequiredService<IFileStorage>()));
+if (opts.CloudFront.Enabled)
+{
+    // Downloads via CloudFront signed URLs; uploads still go straight to S3.
+    var cf = opts.CloudFront;
+    if (string.IsNullOrWhiteSpace(cf.KeyPairId) || string.IsNullOrWhiteSpace(cf.PrivateKeyPath))
+        throw new InvalidOperationException("NitroDrp:CloudFront needs KeyPairId and PrivateKeyPath when Domain is set.");
+    var signer = CloudFrontDownloadLinkSigner.FromPem(cf.Domain!, cf.KeyPairId, File.ReadAllText(cf.PrivateKeyPath), TimeProvider.System);
+    builder.Services.AddSingleton<IDownloadLinkSigner>(signer);
+}
+else
+{
+    builder.Services.AddSingleton<IDownloadLinkSigner>(sp => new S3DownloadLinkSigner(sp.GetRequiredService<IFileStorage>()));
+}
 builder.Services.AddSingleton<ShareService>();
 
 // The API only ever sits behind our nginx, which sets X-Client-IP from Cloudflare's CF-Connecting-IP
