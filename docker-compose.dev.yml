@@ -26,7 +26,7 @@ services:
     depends_on: [s3, s3-edge, dynamodb]
 
   s3:
-    image: motoserver/moto:latest
+    image: motoserver/moto:5.2.5
 
   s3-edge:
     image: nginx:1.27-alpine
@@ -35,5 +35,5 @@ services:
     volumes: ["./dev/s3-edge.conf:/etc/nginx/conf.d/default.conf:ro"]
 
   dynamodb:
-    image: amazon/dynamodb-local:latest
+    image: amazon/dynamodb-local:3.3.2
     command: -jar DynamoDBLocal.jar -sharedDb -inMemory

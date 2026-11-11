@@ -33,7 +33,7 @@ services:
     ports: ["127.0.0.1:8080:80"]
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.7
     profiles: [tunnel]
     restart: unless-stopped
     command: tunnel --no-autoupdate run
