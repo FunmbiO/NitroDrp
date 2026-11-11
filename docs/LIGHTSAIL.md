@@ -22,6 +22,17 @@ for the `nitrodrp-api` user.
    Optional: add UDP 443 for HTTP/3, and restrict SSH to your own IP.
 
 ## 2. Point the subdomain at it (Namecheap)
+**First check the name is free.** A name can have an A record or a CNAME, not both, and an existing record is
+usually in use: `send` in particular is often a CNAME that an email-sending service needs for bounces and
+sender checks, so replacing it can break your outgoing mail. In PowerShell:
+
+```powershell
+Resolve-DnsName drop.jadedmedia.ca -Type A
+```
+
+"DNS name does not exist" means it's free. If it returns a record, don't touch it: choose another name
+(`files`, `transfer`, ...) and use that everywhere below instead of `drop`.
+
 **Domain List -> Manage -> Advanced DNS -> Add new record**: type **A Record**, host `drop`, value = the static
 IP, TTL Automatic. Leave every other record alone. Check from PowerShell:
 
