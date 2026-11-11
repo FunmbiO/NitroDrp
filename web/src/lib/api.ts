@@ -6,6 +6,13 @@ export interface CreateShareResponse {
   partSize: number
   files: CreatedFile[]
 }
+export interface UploadStatus {
+  token: string
+  expiresAt: string
+  partSize: number
+  finalized: boolean
+  files: { id: string; name: string; size: number; partCount: number; complete: boolean; parts: { partNumber: number; eTag: string }[] }[]
+}
 export interface ShareView {
   token: string
   senderName: string
@@ -55,6 +62,8 @@ export const api = {
 
   completeFile: (token: string, fileId: string, ownerKey: string, parts: { partNumber: number; eTag: string }[]) =>
     call<void>('POST', `/shares/${token}/files/${fileId}/complete`, { body: { parts }, headers: owner(ownerKey) }),
+
+  uploadStatus: (token: string, ownerKey: string) => call<UploadStatus>('GET', `/shares/${token}/upload`, { headers: owner(ownerKey) }),
 
   finalize: (token: string, ownerKey: string) => call<void>('POST', `/shares/${token}/finalize`, { headers: owner(ownerKey) }),
   deleteShare: (token: string, ownerKey: string) => call<void>('DELETE', `/shares/${token}`, { headers: owner(ownerKey) }),

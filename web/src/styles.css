@@ -121,3 +121,7 @@ mark { background: var(--lime); color: var(--bg); padding: 0 6px; }
 /* recent */
 .recent-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .recent-row:last-child { border-bottom: 0; }
+
+.notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border: 2px dashed var(--lime); border-radius: 6px; background: #1b1f10; }
+.notice p { margin: 0; font: 14px var(--mono); }
+.hint { margin: 0; color: var(--muted); font: 13px var(--mono); }
