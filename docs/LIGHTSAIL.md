@@ -144,6 +144,7 @@ client-IP headers, so a visitor can't dodge the password-guess limit.
 | Symptom | Likely cause |
 |---|---|
 | No certificate / browser warning | DNS doesn't point at the static IP yet, or ports 80/443 are closed in the Lightsail firewall. Check `docker compose logs caddy`. Fix it, then `docker compose restart caddy`. |
+| Caddy restarts in a loop; the log says `SITE_ADDRESS is empty` (older versions: `unrecognized global option: reverse_proxy`) | `SITE_ADDRESS` is missing or still commented out in `.env`. Fix the line, then `docker compose --profile public up -d` (it recreates Caddy with the new value). |
 | 502 Bad Gateway | The API isn't running. `docker compose logs api` (usually a missing value in `.env`). |
 | Build killed or "out of memory" | Add the swap file from step 3, or move to the next plan size. |
 | The name already has a record (a CNAME shows up instead of your IP) | It's taken, probably by something else you use. Don't replace it: pick another subdomain and use it in `.env`, `allowed_origins` and the DNS record. |
