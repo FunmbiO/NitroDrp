@@ -10,7 +10,7 @@ public interface IEdgeCache
     Task InvalidateAsync(IReadOnlyCollection<string> paths, CancellationToken ct);
 }
 
-/// <summary>Used when there is no CDN (local MinIO, or AWS without CloudFront).</summary>
+/// <summary>Used when there is no CDN (local S3 emulator, or AWS without CloudFront).</summary>
 public sealed class NoEdgeCache : IEdgeCache
 {
     public Task InvalidateAsync(IReadOnlyCollection<string> paths, CancellationToken ct) => Task.CompletedTask;

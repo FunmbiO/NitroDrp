@@ -19,12 +19,12 @@ public sealed class S3Options
     public string Bucket { get; set; } = "";
     public string Region { get; set; } = "ca-central-1";
 
-    /// <summary>Set for S3-compatible stores (MinIO). Leave empty for real AWS.</summary>
+    /// <summary>Set for S3-compatible emulators (moto). Leave empty for real AWS.</summary>
     public string? ServiceUrl { get; set; }
 
     /// <summary>
     /// Endpoint the *browser* can reach, used only to sign presigned URLs. Needed when
-    /// the API talks to MinIO at http://minio:9000 but browsers use http://localhost:9000.
+    /// the API talks to the emulator at http://s3:5000 but browsers use http://localhost:9000.
     /// </summary>
     public string? PublicServiceUrl { get; set; }
 

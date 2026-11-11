@@ -83,7 +83,7 @@ The real app can be embedded too, but **only by origins you allow**: set `FRAME_
 
 ## Run it locally (no AWS account)
 
-MinIO stands in for S3 and DynamoDB Local for DynamoDB:
+moto (an S3 emulator with multipart support) stands in for S3, an nginx edge adds the CORS headers real S3 would, and DynamoDB Local stands in for DynamoDB:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
@@ -91,7 +91,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 Open http://localhost:8080. The access key is `dev-access-key-change-me`.
 
-Without Docker, run the pieces yourself: start MinIO and DynamoDB Local, then `dotnet run --project api/src/NitroDrp.Api` (port 8080 via `ASPNETCORE_URLS`) and `cd web && npm run dev`.
+Without Docker, run the pieces yourself: start an S3 emulator and DynamoDB Local, then `dotnet run --project api/src/NitroDrp.Api` (port 8080 via `ASPNETCORE_URLS`) and `cd web && npm run dev`.
 
 ## Deploy (home server + AWS)
 

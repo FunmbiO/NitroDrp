@@ -6,7 +6,7 @@ public interface IObjectReader
     Task<Stream> OpenAsync(string storageKey, CancellationToken ct);
 }
 
-/// <summary>Reads straight from S3 (local MinIO, or AWS without CloudFront).</summary>
+/// <summary>Reads straight from S3 (local S3 emulator, or AWS without CloudFront).</summary>
 public sealed class S3ObjectReader(IFileStorage storage) : IObjectReader
 {
     public Task<Stream> OpenAsync(string storageKey, CancellationToken ct) => storage.OpenReadAsync(storageKey, ct);
