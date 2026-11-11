@@ -16,6 +16,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public const string ApiKey = "test-api-key-1234567890";
     public InMemoryShareStore Store { get; } = new();
     public FakeStorage Storage { get; } = new();
+    public RecordingEdgeCache Edge { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -28,6 +29,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IFileStorage>();
             services.RemoveAll<IDownloadLinkSigner>();
             services.RemoveAll<IObjectReader>();
+            services.RemoveAll<IEdgeCache>();
+            services.AddSingleton<IEdgeCache>(Edge);
             services.AddSingleton<IShareStore>(Store);
             services.AddSingleton<IFileStorage>(Storage);
             services.AddSingleton<IDownloadLinkSigner>(new S3DownloadLinkSigner(Storage));
@@ -146,5 +149,28 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var b = await PublishAsync(files: [("b.txt", "b")]);
         var urlForA = await ZipUrlAsync(a);
         Assert.Equal(HttpStatusCode.Forbidden, (await _http.GetAsync(urlForA.Replace(a, b))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Deleting_over_http_removes_files_metadata_and_purges_the_edge()
+    {
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/shares")
+        {
+            Content = JsonContent.Create(new { files = new[] { new { name = "z.txt", size = 3 } }, expiresInDays = 1 }),
+        };
+        create.Headers.Add("X-Api-Key", ApiFactory.ApiKey);
+        var created = (await (await _http.SendAsync(create)).Content.ReadFromJsonAsync<Created>(new JsonSerializerOptions(JsonSerializerDefaults.Web)))!;
+        var key = factory.Store.Shares[created.Token].Files[0].StorageKey;
+        factory.Storage.DeclaredSizes[key] = 3;
+        await Owner(created, HttpMethod.Post, $"files/{created.Files[0].Id}/complete", new { parts = new[] { new { partNumber = 1, eTag = "e" } } });
+        await Owner(created, HttpMethod.Post, "finalize", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await _http.DeleteAsync($"/api/shares/{created.Token}")).StatusCode); // no owner key
+        Assert.True(factory.Storage.Objects.ContainsKey(key));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Owner(created, HttpMethod.Delete, "", null)).StatusCode);
+        Assert.False(factory.Storage.Objects.ContainsKey(key));
+        Assert.Contains($"/d1/{created.Token}/*", factory.Edge.Paths);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/shares/{created.Token}")).StatusCode);
     }
 }
