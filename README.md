@@ -100,7 +100,7 @@ python3 dev/smoke.py
 And against a deployed site, to prove the proxy in front stops visitors from dodging the rate limit with forged headers (`PASS` expected):
 
 ```bash
-python3 dev/ratelimit-check.py https://send.example.com
+python3 dev/ratelimit-check.py https://drop.example.com
 ```
 
 It creates a share, uploads a 40 MB file in parts with a simulated crash and resume, finalizes, downloads, streams a zip and compares every byte, then deletes. Twelve PASS lines means storage, the database and the API are all wired correctly.
