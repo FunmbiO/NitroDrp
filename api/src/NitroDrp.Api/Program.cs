@@ -31,11 +31,15 @@ if (opts.CloudFront.Enabled)
         throw new InvalidOperationException("NitroDrp:CloudFront needs KeyPairId and PrivateKeyPath when Domain is set.");
     var signer = CloudFrontDownloadLinkSigner.FromPem(cf.Domain!, cf.KeyPairId, File.ReadAllText(cf.PrivateKeyPath), TimeProvider.System);
     builder.Services.AddSingleton<IDownloadLinkSigner>(signer);
+    builder.Services.AddSingleton<IObjectReader>(new CloudFrontObjectReader(new HttpClient { Timeout = Timeout.InfiniteTimeSpan }, signer));
 }
 else
 {
     builder.Services.AddSingleton<IDownloadLinkSigner>(sp => new S3DownloadLinkSigner(sp.GetRequiredService<IFileStorage>()));
+    builder.Services.AddSingleton<IObjectReader>(sp => new S3ObjectReader(sp.GetRequiredService<IFileStorage>()));
 }
+builder.Services.AddSingleton(ZipLinks.FromApiKey(opts.ApiKey, TimeProvider.System));
+builder.Services.AddSingleton(new ZipGate(Math.Max(1, opts.Limits.MaxConcurrentZips)));
 builder.Services.AddSingleton<ShareService>();
 
 // The API only ever sits behind our nginx, which sets X-Client-IP from Cloudflare's CF-Connecting-IP
@@ -82,3 +86,5 @@ if (opts.Dynamo.AutoCreateTable)
 
 app.MapShareEndpoints();
 app.Run();
+
+public partial class Program;

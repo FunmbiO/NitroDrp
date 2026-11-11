@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NitroDrp.Api.Services;
+using NitroDrp.Api.Storage;
 
 namespace NitroDrp.Api.Endpoints;
 
@@ -58,6 +59,32 @@ public static class ShareEndpoints
 
         shares.MapPost("/{token}/unlock", async (string token, [FromBody] PasswordRequest body, ShareService svc, CancellationToken ct) =>
             Results.Ok(await svc.UnlockAsync(token, body.Password, ct))).RequireRateLimiting("password");
+
+        // Zip: POST counts the download and returns a signed URL; the browser then navigates to it so the
+        // archive streams straight to disk. Bytes are read from storage and zipped on the fly.
+        shares.MapPost("/{token}/zip-link", async (string token, [FromBody] PasswordRequest body, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.CreateZipLinkAsync(token, body.Password, ct))).RequireRateLimiting("password");
+
+        shares.MapGet("/{token}/zip", async (
+            string token, long? exp, string? sig, HttpContext http, ShareService svc, IObjectReader reader, ZipGate gate, CancellationToken ct) =>
+        {
+            var plan = await svc.PrepareZipAsync(token, exp, sig, ct);
+            if (!gate.TryEnter())
+                throw new ServiceException(429, "busy", "Too many zips are being prepared right now. Try again in a minute.");
+            try
+            {
+                var res = http.Response;
+                res.ContentType = "application/zip";
+                res.Headers.ContentDisposition = $"attachment; filename*=UTF-8''{Uri.EscapeDataString(plan.FileName)}";
+                res.Headers.CacheControl = "no-store";
+                await ZipStreamer.WriteAsync(res.Body, plan.Entries.Select(e => new ZipSource(e.Name, c => reader.OpenAsync(e.StorageKey, c))), ct);
+            }
+            finally
+            {
+                gate.Exit();
+            }
+            return Results.Empty;
+        }).RequireRateLimiting("public");
 
         shares.MapPost("/{token}/download", async (string token, [FromBody] DownloadRequest body, ShareService svc, CancellationToken ct) =>
             Results.Ok(await svc.DownloadAsync(token, body, ct))).RequireRateLimiting("password");

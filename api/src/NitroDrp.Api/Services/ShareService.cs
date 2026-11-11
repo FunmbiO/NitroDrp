@@ -6,7 +6,7 @@ namespace NitroDrp.Api.Services;
 
 /// <summary>All business rules live here so they can be tested without HTTP, S3 or DynamoDB.</summary>
 public sealed class ShareService(
-    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IOptions<NitroDrpOptions> options, TimeProvider clock)
+    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock)
 {
     private const int MaxS3Parts = 10_000;
     private const int MaxPartsPerPresign = 100;
@@ -183,6 +183,34 @@ public sealed class ShareService(
         return new DownloadResponse(targets
             .Select(f => new DownloadLink(f.Id, f.Name, f.Size, links.Sign(f.StorageKey, f.Name, ttl)))
             .ToList());
+    }
+
+    /// <summary>Checks the password and counts the download, then returns a short-lived signed URL for the zip stream.</summary>
+    public async Task<ZipLinkResponse> CreateZipLinkAsync(string token, string? password, CancellationToken ct)
+    {
+        var share = await LoadActiveAsync(token, ct);
+        RequirePassword(share, password);
+        if (!await store.TryRegisterDownloadAsync(token, clock.GetUtcNow(), ct))
+            throw ServiceException.Gone("limit_reached", "This link has reached its download limit.");
+        return new ZipLinkResponse(zipLinks.Create(token, TimeSpan.FromMinutes(_o.S3.DownloadUrlMinutes)));
+    }
+
+    /// <summary>
+    /// Validates a signed zip URL and returns what to stream. Doesn't count a download (the link-creating call
+    /// already did) and ignores the download limit for that reason, but still honours expiry.
+    /// </summary>
+    public async Task<ZipPlan> PrepareZipAsync(string token, long? exp, string? sig, CancellationToken ct)
+    {
+        if (exp is null || !zipLinks.IsValid(token, exp.Value, sig))
+            throw ServiceException.Forbidden("bad_zip_link", "This zip link is invalid or has expired. Start the download again.");
+        var share = await store.GetAsync(token, ct);
+        if (share is null || share.Status != ShareStatus.Active) throw ServiceException.NotFound();
+        if (clock.GetUtcNow() >= share.ExpiresAt) throw ServiceException.Gone("expired", "This link has expired.");
+
+        var files = share.Files.OrderBy(f => f.Order).ToList();
+        var names = ZipStreamer.UniqueNames(files.Select(f => f.Name));
+        var fileName = FileNames.Sanitize($"{share.SenderName} files.zip");
+        return new ZipPlan(fileName.Length > 0 ? fileName : "files.zip", files.Select((f, i) => new ZipEntryPlan(names[i], f.StorageKey)).ToList());
     }
 
     public async Task DeleteAsync(string token, string? ownerKey, CancellationToken ct)

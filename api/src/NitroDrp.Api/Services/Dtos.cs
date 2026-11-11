@@ -34,3 +34,7 @@ public sealed record DownloadResponse(IReadOnlyList<DownloadLink> Files);
 public sealed record UploadFileStatus(string Id, string Name, long Size, int PartCount, bool Complete, IReadOnlyList<UploadedPart> Parts);
 public sealed record UploadStatusResponse(
     string Token, DateTimeOffset ExpiresAt, int PartSize, bool Finalized, IReadOnlyList<UploadFileStatus> Files);
+
+public sealed record ZipLinkResponse(string Url);
+public sealed record ZipEntryPlan(string Name, string StorageKey);
+public sealed record ZipPlan(string FileName, IReadOnlyList<ZipEntryPlan> Entries);

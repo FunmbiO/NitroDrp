@@ -69,6 +69,8 @@ public sealed class LimitOptions
     public int MaxFiles { get; set; } = 100;
     public long MaxFileBytes { get; set; } = 20L * 1024 * 1024 * 1024;
     public long MaxTotalBytes { get; set; } = 50L * 1024 * 1024 * 1024;
+    /// <summary>Zips stream through this server, so cap how many run at once (home uplink).</summary>
+    public int MaxConcurrentZips { get; set; } = 2;
     public int[] AllowedExpiryDays { get; set; } = [];
     public string[] BlockedExtensions { get; set; } = [];
 }
