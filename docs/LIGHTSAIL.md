@@ -82,7 +82,13 @@ Put that in `.env` as `API_KEY` (and save it in a password manager), then edit w
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | a **new** access key for `nitrodrp-api` (IAM console), one per server |
 | `SITE_ADDRESS` | `drop.jadedmedia.ca` |
 
-Leave the `CLOUDFRONT_*` and `TUNNEL_TOKEN` values empty.
+Leave the `CLOUDFRONT_*` and `TUNNEL_TOKEN` values empty. Make sure the `SITE_ADDRESS` line has **no `#` at the start**.
+
+Check that Compose will pass it through (this must print your hostname, not an empty value):
+
+```bash
+docker compose --profile public config | grep SITE_ADDRESS
+```
 
 ## 5. Allow the site in the bucket's CORS rules
 On your own computer, add the hostname to `allowed_origins` in `infra/terraform/terraform.tfvars` and apply.
