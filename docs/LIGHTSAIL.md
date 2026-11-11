@@ -40,7 +40,7 @@ IP, TTL Automatic. Leave every other record alone. Check from PowerShell:
 Resolve-DnsName drop.jadedmedia.ca -Type A
 ```
 
-Wait until it shows your IP before step 5, because Caddy needs it to prove you own the name. If the domain has
+After adding the record, run the same command again and wait until it shows your IP (it can take a few minutes) before step 6, because Caddy needs it to prove you own the name. If the domain has
 CAA records, one must allow `letsencrypt.org`.
 
 ## 3. Prepare the server
@@ -140,5 +140,6 @@ client-IP headers, so a visitor can't dodge the password-guess limit.
 | No certificate / browser warning | DNS doesn't point at the static IP yet, or ports 80/443 are closed in the Lightsail firewall. Check `docker compose logs caddy`. Fix it, then `docker compose restart caddy`. |
 | 502 Bad Gateway | The API isn't running. `docker compose logs api` (usually a missing value in `.env`). |
 | Build killed or "out of memory" | Add the swap file from step 3, or move to the next plan size. |
+| The name already has a record (a CNAME shows up instead of your IP) | It's taken, probably by something else you use. Don't replace it: pick another subdomain and use it in `.env`, `allowed_origins` and the DNS record. |
 | Uploads fail with a CORS error | `allowed_origins` doesn't exactly match `https://drop.jadedmedia.ca`. Re-run `terraform apply`. |
 | `AccessDenied` in the API log | The AWS access key in `.env` is wrong or inactive. |
