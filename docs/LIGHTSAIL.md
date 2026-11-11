@@ -64,30 +64,37 @@ Close the SSH window and open a new one so the group change applies, then check 
 
 ## 4. Get the app and configure it
 ```bash
-git clone https://github.com/FunmbiO/NitroDrp.git && cd NitroDrp && cp .env.example .env && chmod 600 .env
+git clone https://github.com/FunmbiO/NitroDrp.git && cd NitroDrp
 ```
+
+Have these ready: the bucket name (from `terraform output`), and a **new** access key for the `nitrodrp-api` user
+(IAM console: one key per server). Then let the script write `.env` for you:
 
 ```bash
-openssl rand -hex 32
+./deploy/setup-env.sh
 ```
 
-Put that in `.env` as `API_KEY` (and save it in a password manager), then edit with `nano .env`:
+It asks for each value (the secret key is typed hidden), generates the `API_KEY`, and makes the file private.
+**It prints the `API_KEY` once at the end: save it in a password manager.** That's the access key the upload
+page asks for.
 
-| Variable | Value |
+| It asks for | Answer |
 |---|---|
-| `SENDER_NAME` | Jaded Media |
-| `API_KEY` | the random value above |
-| `AWS_REGION` | `us-east-2` |
-| `S3_BUCKET`, `DYNAMO_TABLE` | from `terraform output` |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | a **new** access key for `nitrodrp-api` (IAM console), one per server |
-| `SITE_ADDRESS` | `drop.jadedmedia.ca` |
+| Name recipients see | Jaded Media |
+| AWS region | `us-east-2` (the default) |
+| S3 bucket | from `terraform output` |
+| DynamoDB table | `nitrodrp` (the default) |
+| AWS access key id and secret | the new `nitrodrp-api` key |
+| Public hostname | `drop.jadedmedia.ca` (no `https://`) |
 
-Leave the `CLOUDFRONT_*` and `TUNNEL_TOKEN` values empty. Make sure the `SITE_ADDRESS` line has **no `#` at the start**.
+The `CLOUDFRONT_*` and `TUNNEL_TOKEN` values stay empty. To change something later, edit `.env` with
+`nano .env` and re-run step 6. In nano, Ctrl+O then Enter saves and Ctrl+X exits; a `#` at the start of a line
+turns it off, so make sure `SITE_ADDRESS` has none.
 
-Check that Compose will pass it through (this must print your hostname, not an empty value):
+Check that Compose will pass the values through (this must print your hostname and bucket, not empty values):
 
 ```bash
-docker compose --profile public config | grep SITE_ADDRESS
+docker compose --profile public config | grep -E "SITE_ADDRESS|Bucket"
 ```
 
 ## 5. Allow the site in the bucket's CORS rules
