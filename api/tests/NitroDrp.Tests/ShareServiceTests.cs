@@ -242,4 +242,63 @@ public class ShareServiceTests
         Assert.Equal(403, ex.Status);
         Assert.True(_store.Shares.ContainsKey(created.Token));
     }
+
+    [Fact]
+    public async Task Upload_status_reports_parts_already_in_storage()
+    {
+        var created = await _svc.CreateAsync(Req(), default); // 3 parts
+        var key = _store.Shares[created.Token].Files[0].StorageKey;
+        _storage.Parts[key] = [new(1, "\"e1\"", Part), new(2, "\"e2\"", Part)];
+
+        var status = await _svc.GetUploadStatusAsync(created.Token, created.OwnerKey, default);
+        var file = Assert.Single(status.Files);
+        Assert.False(file.Complete);
+        Assert.False(status.Finalized);
+        Assert.Equal([1, 2], file.Parts.Select(p => p.PartNumber));
+        Assert.Equal(Part, status.PartSize);
+    }
+
+    [Fact]
+    public async Task Resumed_upload_can_finish_using_listed_parts_plus_new_ones()
+    {
+        var created = await _svc.CreateAsync(Req(), default);
+        var f = created.Files[0];
+        var key = _store.Shares[created.Token].Files[0].StorageKey;
+        _storage.Parts[key] = [new(1, "e1", Part), new(2, "e2", Part)];
+
+        var listed = (await _svc.GetUploadStatusAsync(created.Token, created.OwnerKey, default)).Files[0].Parts;
+        var all = listed.Append(new UploadedPart(3, "e3")).ToList();
+        _storage.DeclaredSizes[key] = f.Size;
+
+        await _svc.CompleteFileAsync(created.Token, created.OwnerKey, f.Id, new CompleteFileRequest(all), default);
+        await _svc.FinalizeAsync(created.Token, created.OwnerKey, default);
+        Assert.Equal(ShareStatus.Active, _store.Shares[created.Token].Status);
+    }
+
+    [Fact]
+    public async Task Upload_status_marks_finished_files_and_finalized_shares()
+    {
+        var (created, _) = await Publish(Req(files: ("a.zip", 10)));
+        var status = await _svc.GetUploadStatusAsync(created.Token, created.OwnerKey, default);
+        Assert.True(status.Finalized);
+        Assert.True(status.Files[0].Complete);
+    }
+
+    [Fact]
+    public async Task Upload_status_is_gone_when_the_multipart_upload_expired()
+    {
+        var created = await _svc.CreateAsync(Req(), default);
+        _storage.OpenUploads.Clear(); // S3 aborted it (lifecycle rule)
+        var ex = await Assert.ThrowsAsync<ServiceException>(() => _svc.GetUploadStatusAsync(created.Token, created.OwnerKey, default));
+        Assert.Equal("upload_expired", ex.Code);
+        Assert.Equal(410, ex.Status);
+    }
+
+    [Fact]
+    public async Task Upload_status_needs_the_owner_key()
+    {
+        var created = await _svc.CreateAsync(Req(), default);
+        var ex = await Assert.ThrowsAsync<ServiceException>(() => _svc.GetUploadStatusAsync(created.Token, "nope", default));
+        Assert.Equal(403, ex.Status);
+    }
 }

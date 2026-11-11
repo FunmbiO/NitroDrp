@@ -82,6 +82,30 @@ public sealed class ShareService(
             files.Select(f => new CreatedFile(f.Id, f.Name, f.Size, PartCount(f.Size, partSize))).ToList());
     }
 
+    /// <summary>
+    /// What the uploader needs to resume: per file, whether it's complete and which parts S3 already holds.
+    /// Parts come from S3 itself (ListParts), so a crashed tab or a lost response can't leave this out of sync.
+    /// </summary>
+    public async Task<UploadStatusResponse> GetUploadStatusAsync(string token, string? ownerKey, CancellationToken ct)
+    {
+        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var partSize = _o.S3.PartSizeBytes;
+        var files = new List<UploadFileStatus>();
+
+        foreach (var f in share.Files.OrderBy(f => f.Order))
+        {
+            IReadOnlyList<UploadedPart> parts = [];
+            if (f is { Status: FileStatus.Uploading, UploadId: not null })
+            {
+                var stored = await storage.ListPartsAsync(f.StorageKey, f.UploadId, ct)
+                    ?? throw ServiceException.Gone("upload_expired", "This upload expired before it finished. Start it again.");
+                parts = stored.Select(p => new UploadedPart(p.PartNumber, p.ETag)).ToList();
+            }
+            files.Add(new UploadFileStatus(f.Id, f.Name, f.Size, PartCount(f.Size, partSize), f.Status == FileStatus.Complete, parts));
+        }
+        return new UploadStatusResponse(token, share.ExpiresAt, partSize, share.Status == ShareStatus.Active, files);
+    }
+
     public async Task<PresignResponse> PresignAsync(string token, string? ownerKey, string fileId, PresignRequest req, CancellationToken ct)
     {
         var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);

@@ -26,6 +26,9 @@ public static class ShareEndpoints
             return Results.Created($"/api/shares/{created.Token}", created);
         }).RequireRateLimiting("create");
 
+        shares.MapGet("/{token}/upload", async (string token, HttpRequest http, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetUploadStatusAsync(token, Owner(http), ct))).RequireRateLimiting("upload");
+
         shares.MapPost("/{token}/files/{fileId}/presign", async (
             string token, string fileId, [FromBody] PresignRequest body, HttpRequest http, ShareService svc, CancellationToken ct) =>
             Results.Ok(await svc.PresignAsync(token, Owner(http), fileId, body, ct))).RequireRateLimiting("upload");
