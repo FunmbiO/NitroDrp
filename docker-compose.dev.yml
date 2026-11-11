@@ -6,8 +6,6 @@
 #  moto is an actively maintained S3 emulator that supports multipart uploads.)
 services:
   api:
-    # Local runs download straight from the emulator: no CloudFront, so no signing key needed.
-    secrets: !reset []
     environment:
       NitroDrp__ApiKey: dev-access-key-change-me
       NitroDrp__S3__Bucket: nitrodrp-dev

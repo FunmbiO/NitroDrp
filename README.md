@@ -115,7 +115,6 @@ Without Docker, run the pieces yourself: start an S3 emulator and DynamoDB Local
 5. In Cloudflare Zero Trust, create a tunnel with a public hostname pointing at `http://web:80`, and put its token in `.env` as `TUNNEL_TOKEN`.
 6. `docker compose --profile tunnel up -d --build`
 
-Needs Docker Compose 2.24+ (the dev override uses `!reset`).
 
 Make sure `allowed_origins` in Terraform matches your public hostname, otherwise browser uploads fail CORS.
 
