@@ -1,0 +1,43 @@
+# Fully local: MinIO stands in for S3, DynamoDB Local for DynamoDB. No AWS account needed.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# then open http://localhost:8080 (access key: dev-access-key-change-me)
+services:
+  api:
+    environment:
+      NitroDrp__ApiKey: dev-access-key-change-me
+      NitroDrp__S3__Bucket: nitrodrp-dev
+      NitroDrp__S3__ServiceUrl: http://minio:9000
+      NitroDrp__S3__PublicServiceUrl: http://localhost:9000
+      NitroDrp__S3__ForcePathStyle: "true"
+      NitroDrp__S3__AccessKey: minioadmin
+      NitroDrp__S3__SecretKey: minioadmin
+      NitroDrp__Dynamo__ServiceUrl: http://dynamodb:8000
+      NitroDrp__Dynamo__AutoCreateTable: "true"
+      NitroDrp__Dynamo__AccessKey: local
+      NitroDrp__Dynamo__SecretKey: local
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+    depends_on: [minio-init, dynamodb]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio-data:/data]
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb --ignore-existing local/nitrodrp-dev"
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: -jar DynamoDBLocal.jar -sharedDb -inMemory
+
+volumes:
+  minio-data:
