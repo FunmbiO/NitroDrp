@@ -128,3 +128,8 @@ mark { background: var(--lime); color: var(--bg); padding: 0 6px; }
 
 .demo-banner { padding: 8px 20px; text-align: center; background: var(--lime); color: var(--bg); font: 13px var(--mono); }
 .demo-banner strong { font-weight: 700; }
+
+/* Embedded in another site (?embed=1): the host provides the chrome, so drop ours and tighten up. */
+html[data-embed] body { min-height: 0; }
+html[data-embed] .page { padding-top: 16px; padding-bottom: 24px; }
+html[data-embed] h1 { font-size: 32px; }
