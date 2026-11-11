@@ -2,8 +2,40 @@
 # Uploads still go browser -> S3 with presigned multipart URLs. Downloads go through CloudFront:
 # S3 -> CloudFront transfer is free and CloudFront's free tier covers 1 TB/month, versus S3's
 # internet egress ($0.09/GB after 100 GB). The bucket stays private; only this distribution can read it.
+#
+# Everything here is optional (var.enable_cloudfront). With it off, the API falls back to S3 presigned
+# download URLs, so the app works with no CloudFront at all. CloudFront sometimes needs a one-off account
+# verification by AWS Support before it will create a distribution.
+
+locals {
+  cloudfront = var.enable_cloudfront ? 1 : 0
+}
+
+# These four were created before the switch existed. Moving them to indexed addresses lets an existing
+# state adopt the change without destroying and recreating them.
+moved {
+  from = aws_cloudfront_origin_access_control.files
+  to   = aws_cloudfront_origin_access_control.files[0]
+}
+
+moved {
+  from = aws_cloudfront_public_key.downloads
+  to   = aws_cloudfront_public_key.downloads[0]
+}
+
+moved {
+  from = aws_cloudfront_key_group.downloads
+  to   = aws_cloudfront_key_group.downloads[0]
+}
+
+moved {
+  from = aws_cloudfront_cache_policy.downloads
+  to   = aws_cloudfront_cache_policy.downloads[0]
+}
 
 resource "aws_cloudfront_origin_access_control" "files" {
+  count = local.cloudfront
+
   name                              = "${var.table_name}-files"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -13,19 +45,25 @@ resource "aws_cloudfront_origin_access_control" "files" {
 # Download URLs are signed by the API with the private key you generated; CloudFront
 # verifies them with this public key. Without a valid, unexpired signature it returns 403.
 resource "aws_cloudfront_public_key" "downloads" {
+  count = local.cloudfront
+
   name        = "${var.table_name}-downloads"
   encoded_key = var.cloudfront_public_key_pem
 }
 
 resource "aws_cloudfront_key_group" "downloads" {
+  count = local.cloudfront
+
   name  = "${var.table_name}-downloads"
-  items = [aws_cloudfront_public_key.downloads.id]
+  items = [aws_cloudfront_public_key.downloads[0].id]
 }
 
 # The signed URL carries response-content-disposition (the download filename), which S3 needs to
 # receive. The signature params themselves (Expires, Signature, Key-Pair-Id) are not forwarded.
 # TTLs are short so a deleted share's bytes don't linger at the edge.
 resource "aws_cloudfront_cache_policy" "downloads" {
+  count = local.cloudfront
+
   name        = "${var.table_name}-downloads"
   min_ttl     = 0
   default_ttl = 300
@@ -51,6 +89,8 @@ resource "aws_cloudfront_cache_policy" "downloads" {
 }
 
 resource "aws_cloudfront_distribution" "downloads" {
+  count = local.cloudfront
+
   enabled      = true
   comment      = "NitroDrp downloads"
   price_class  = var.cloudfront_price_class
@@ -59,7 +99,7 @@ resource "aws_cloudfront_distribution" "downloads" {
   origin {
     domain_name              = aws_s3_bucket.files.bucket_regional_domain_name
     origin_id                = "files"
-    origin_access_control_id = aws_cloudfront_origin_access_control.files.id
+    origin_access_control_id = aws_cloudfront_origin_access_control.files[0].id
   }
 
   default_cache_behavior {
@@ -67,8 +107,8 @@ resource "aws_cloudfront_distribution" "downloads" {
     viewer_protocol_policy = "https-only"
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = aws_cloudfront_cache_policy.downloads.id
-    trusted_key_groups     = [aws_cloudfront_key_group.downloads.id]
+    cache_policy_id        = aws_cloudfront_cache_policy.downloads[0].id
+    trusted_key_groups     = [aws_cloudfront_key_group.downloads[0].id]
     compress               = false
   }
 
@@ -85,6 +125,8 @@ resource "aws_cloudfront_distribution" "downloads" {
 
 # Only this distribution (not the public) may read objects through the service principal.
 data "aws_iam_policy_document" "cloudfront_read" {
+  count = local.cloudfront
+
   statement {
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.files.arn}/*"]
@@ -97,13 +139,15 @@ data "aws_iam_policy_document" "cloudfront_read" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.downloads.arn]
+      values   = [aws_cloudfront_distribution.downloads[0].arn]
     }
   }
 }
 
 resource "aws_s3_bucket_policy" "cloudfront_read" {
+  count = local.cloudfront
+
   bucket     = aws_s3_bucket.files.id
-  policy     = data.aws_iam_policy_document.cloudfront_read.json
+  policy     = data.aws_iam_policy_document.cloudfront_read[0].json
   depends_on = [aws_s3_bucket_public_access_block.files]
 }

@@ -12,16 +12,16 @@ output "iam_user_name" {
 }
 
 output "cloudfront_domain" {
-  description = "Set as NitroDrp__CloudFront__Domain."
-  value       = aws_cloudfront_distribution.downloads.domain_name
+  description = "Set as CLOUDFRONT_DOMAIN. Null when enable_cloudfront is false."
+  value       = one(aws_cloudfront_distribution.downloads[*].domain_name)
 }
 
 output "cloudfront_key_pair_id" {
   description = "Set as NitroDrp__CloudFront__KeyPairId."
-  value       = aws_cloudfront_public_key.downloads.id
+  value       = one(aws_cloudfront_public_key.downloads[*].id)
 }
 
 output "cloudfront_distribution_id" {
   description = "Set as NitroDrp__CloudFront__DistributionId so deleting a link purges the edge cache."
-  value       = aws_cloudfront_distribution.downloads.id
+  value       = one(aws_cloudfront_distribution.downloads[*].id)
 }

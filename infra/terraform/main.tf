@@ -114,10 +114,14 @@ data "aws_iam_policy_document" "api" {
     actions   = ["s3:ListBucket"] # lets HeadObject return 404 instead of 403 for missing keys
     resources = [aws_s3_bucket.files.arn]
   }
-  statement {
-    # Lets "Delete link now" purge the edge cache. Scoped to this one distribution.
-    actions   = ["cloudfront:CreateInvalidation"]
-    resources = [aws_cloudfront_distribution.downloads.arn]
+  dynamic "statement" {
+    # Lets "Delete link now" purge the edge cache. Scoped to this one distribution, and only
+    # present when there is one.
+    for_each = var.enable_cloudfront ? [1] : []
+    content {
+      actions   = ["cloudfront:CreateInvalidation"]
+      resources = [aws_cloudfront_distribution.downloads[0].arn]
+    }
   }
   statement {
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchWriteItem"]
