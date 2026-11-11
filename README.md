@@ -91,6 +91,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 Open http://localhost:8080. The access key is `dev-access-key-change-me`.
 
+Once it's up, check the whole stack without a browser (needs Python 3 only):
+
+```bash
+python3 dev/smoke.py
+```
+
+It creates a share, uploads a 40 MB file in parts with a simulated crash and resume, finalizes, downloads, streams a zip and compares every byte, then deletes. Twelve PASS lines means storage, the database and the API are all wired correctly.
+
 Without Docker, run the pieces yourself: start an S3 emulator and DynamoDB Local, then `dotnet run --project api/src/NitroDrp.Api` (port 8080 via `ASPNETCORE_URLS`) and `cd web && npm run dev`.
 
 ## Deploy (home server + AWS)
