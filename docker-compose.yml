@@ -32,6 +32,21 @@ services:
     # CF-Connecting-IP for rate limiting, which anyone who could reach this port directly could forge.
     ports: ["127.0.0.1:8080:80"]
 
+  # Public HTTPS with automatic certificates, for a server with its own public IP (see docs/LIGHTSAIL.md):
+  #   docker compose --profile public up -d --build
+  caddy:
+    image: caddy:2.11.9-alpine
+    profiles: [public]
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data         # certificates: keep them, Let's Encrypt rate-limits re-issuing
+      - caddy_config:/config
+
   cloudflared:
     image: cloudflare/cloudflared:2026.10.7
     profiles: [tunnel]
@@ -44,3 +59,7 @@ services:
 secrets:
   cloudfront_private_key:
     file: ./secrets/cloudfront-private.pem
+
+volumes:
+  caddy_data:
+  caddy_config:

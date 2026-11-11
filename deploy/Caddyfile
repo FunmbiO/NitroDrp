@@ -1,0 +1,14 @@
+# Public HTTPS for a server with its own IP (no Cloudflare Tunnel). Caddy gets and renews a Let's Encrypt
+# certificate by itself, as long as SITE_ADDRESS (e.g. send.jadedmedia.ca) already points at this server
+# and ports 80 and 443 are reachable.
+{$SITE_ADDRESS} {
+	reverse_proxy web:80 {
+		# Zips stream for as long as the files take, so pass bytes through as they arrive.
+		flush_interval -1
+
+		# The API rate-limits per client IP, and nginx learns that IP from headers. Only the proxy in
+		# front is trusted to set them, so overwrite ours and drop any that a visitor sent:
+		header_up X-Caddy-Client-IP {remote_host}
+		header_up -CF-Connecting-IP
+	}
+}
