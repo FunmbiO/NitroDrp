@@ -1,0 +1,3 @@
+bucket_name     = "nitrodrp-files-CHANGE-ME"
+allowed_origins = ["https://drop.example.com"]
+budget_email    = "you@example.com"
