@@ -43,6 +43,17 @@ services:
     depends_on: [web]
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-}
+    # An empty SITE_ADDRESS turns the Caddyfile's site block into a global-options block, which fails with a
+    # confusing parse error. Say what's actually wrong instead.
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$SITE_ADDRESS" ]; then
+          echo "SITE_ADDRESS is empty. Set it in .env (e.g. SITE_ADDRESS=drop.example.com, no leading #) and run: docker compose --profile public up -d" >&2
+          exit 1
+        fi
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports: ["80:80", "443:443", "443:443/udp"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
