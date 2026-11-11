@@ -34,3 +34,14 @@ variable "budget_email" {
   description = "Where AWS Budgets sends cost alerts."
   type        = string
 }
+
+variable "cloudfront_public_key_pem" {
+  description = "PEM public key whose private half the API uses to sign download URLs. Generate with: openssl genrsa -out cf-private.pem 2048 && openssl rsa -pubout -in cf-private.pem -out cf-public.pem"
+  type        = string
+}
+
+variable "cloudfront_price_class" {
+  description = "PriceClass_100 = North America and Europe edges only (cheapest)."
+  type        = string
+  default     = "PriceClass_100"
+}
