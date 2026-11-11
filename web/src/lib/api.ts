@@ -25,6 +25,7 @@ export interface ShareView {
 }
 export interface DownloadLink { id: string; name: string; size: number; url: string }
 
+import { demo } from './demoInstance'
 import { ApiError } from './errors'
 export { ApiError }
 
@@ -78,4 +79,4 @@ export const realApi = {
 
 export type Api = typeof realApi
 
-export const api: Api = realApi
+export const api: Api = demo ? demo.api : realApi

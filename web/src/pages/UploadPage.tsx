@@ -4,7 +4,9 @@ import { api, ApiError } from '../lib/api'
 import { formatBytes } from '../lib/format'
 import { matchFiles, sigOf } from '../lib/resume'
 import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
-import { uploadParts, xhrPutPart, type UploadedPart } from '../lib/upload'
+import { DEMO } from '../lib/config'
+import { putPart } from '../lib/transport'
+import { uploadParts, type UploadedPart } from '../lib/upload'
 import { CheckIcon, CloseIcon, FileIcon, UploadIcon } from '../components/Icons'
 
 interface Item {
@@ -38,7 +40,7 @@ export function UploadPage() {
   const [usePw, setUsePw] = useState(false)
   const [password, setPassword] = useState('')
   const [limit, setLimit] = useState('')
-  const [apiKey, setKey] = useState(getApiKey)
+  const [apiKey, setKey] = useState(DEMO ? 'demo' : getApiKey())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [pending, setPending] = useState<PendingUpload | null>(getPending)
@@ -70,7 +72,7 @@ export function UploadPage() {
     abort.current = ctl
     try {
       const key = apiKey.trim()
-      setApiKey(key)
+      if (!DEMO) setApiKey(key)
 
       let token: string
       let ownerKey: string
@@ -132,7 +134,7 @@ export function UploadPage() {
             signal: ctl.signal,
             alreadyUploaded: plan.parts,
             presign: (n) => api.presign(token, plan.id, ownerKey, n),
-            putPart: xhrPutPart,
+            putPart,
             onProgress: (uploaded) => patch(index, { uploaded }),
           })
           await api.completeFile(token, plan.id, ownerKey, parts)
@@ -281,10 +283,12 @@ export function UploadPage() {
             <input id="limit" className="input" type="number" min={1} max={10000} placeholder="Unlimited" disabled={locked} value={limit} onChange={(e) => setLimit(e.target.value)} />
           </div>
 
-          <div className="field">
-            <label htmlFor="key">Access key</label>
-            <input id="key" className="input" type="password" autoComplete="current-password" placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
-          </div>
+          {!DEMO && (
+            <div className="field">
+              <label htmlFor="key">Access key</label>
+              <input id="key" className="input" type="password" autoComplete="current-password" placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
+            </div>
+          )}
 
           {resuming && <p className="hint">Resuming with the settings you chose the first time.</p>}
           {error && <p className="error" role="alert">{error}</p>}
