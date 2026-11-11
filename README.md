@@ -27,11 +27,24 @@ Design decisions worth knowing:
 - **Expiry is enforced twice.** The API refuses expired links immediately; DynamoDB TTL deletes the metadata; S3 lifecycle rules (one per expiry choice, keyed on the `d<days>/` key prefix) delete the bytes. No cleanup cron.
 - **Download limits are race-free.** The count is a single conditional `UpdateItem` (`downloadCount < downloadLimit`), so concurrent downloads can't exceed the limit. Covered by a concurrency test.
 - **Downloads go through CloudFront, not S3.** S3 to CloudFront transfer is free and CloudFront's free tier covers 1 TB/month, so large galleries don't hit S3's $0.09/GB egress. The bucket stays private (origin access control); the API issues short-lived CloudFront signed URLs (RSA key you generate, public half in a Terraform key group). The download filename is part of the signed URL, so it can't be altered. If `CLOUDFRONT_DOMAIN` is unset (local MinIO), the API falls back to S3 presigned URLs behind the same `IDownloadLinkSigner` interface.
+- **"Download all" is a streamed .zip.** The browser navigates to a short-lived HMAC-signed URL (the password was checked, and the download counted, by the POST that issued it), and the API zips on the fly: store-only, ZIP64, flat memory however large the files are, verified with a 4.8 GB archive. Unlike single files, zip bytes do pass through your server, so they're read via CloudFront (free transfer) rather than S3 egress, and at most 2 zips run at once (`Limits:MaxConcurrentZips`). Per-file buttons still download directly from the CDN.
 - **Two kinds of secret.** A shared *access key* gates creating links (this is a private instance). Each share gets its own 256-bit *owner key* (stored only as a SHA-256 hash) that authorises uploading, finalizing and deleting that share.
 - **Passwords** are PBKDF2-SHA256 (210k iterations, per-hash salt). Password-protected links don't reveal their file names until unlocked.
 - **Storage and metadata sit behind interfaces** (`IFileStorage`, `IShareStore`). All business rules live in `ShareService` and are tested against in-memory fakes, no AWS needed.
 - **Presigned-URL signing identity is least-privilege** (see `infra/terraform/main.tf`).
 - **Rate limiting** per client IP, stricter on password attempts. nginx sets `X-Client-IP` from Cloudflare's `CF-Connecting-IP`; the API must only be reachable through nginx.
+
+## Try the UI in 30 seconds (no AWS, no Docker)
+
+A dev-only mock API with seeded demo links lets you click through everything: uploads, resume, passwords, limits, zip.
+
+```bash
+cd web && npm install
+npm run mock     # terminal 1: mock API on :8080
+npm run dev      # terminal 2: UI on http://localhost:5173
+```
+
+Demo links: `/d/demo1234abcd` (3 files), `/d/locked123456` (password `nitro`), `/d/expired00000` (expired). The mock discards uploaded bytes and serves small zero-filled files, so it's for looking at the UI, not for testing transfers.
 
 ## Run it locally (no AWS account)
 
@@ -66,7 +79,7 @@ Make sure `allowed_origins` in Terraform matches your public hostname, otherwise
 ## Tests
 
 ```bash
-dotnet test api/NitroDrp.sln      # share rules, limits, passwords, expiry, concurrency, resume, CloudFront signatures
+dotnet test api/NitroDrp.sln      # share rules, HTTP pipeline, zip streaming, passwords, expiry, concurrency, resume, CloudFront signatures
 cd web && npm test                # chunk uploader (retry, progress, skip-uploaded), file matching, formatting
 ```
 
@@ -82,6 +95,8 @@ cd web && npm test                # chunk uploader (retry, progress, skip-upload
 | DELETE | `/api/shares/{token}` | `X-Owner-Key` | Delete files and metadata now |
 | GET | `/api/shares/{token}` | none | Public metadata |
 | POST | `/api/shares/{token}/unlock` | password | File list for protected links |
+| POST | `/api/shares/{token}/zip-link` | password | Count a download, return a signed URL for the zip |
+| GET | `/api/shares/{token}/zip` | signed URL | Stream all files as one .zip |
 | POST | `/api/shares/{token}/download` | password | Count a download, return CloudFront signed URLs (S3 presigned locally) |
 
 ## Status and roadmap
@@ -90,6 +105,6 @@ Working: everything above. The C# and TypeScript are built and tested, and both 
 
 Not built yet:
 
-- **"Download all as .zip"**. Right now it downloads the files one after another. Streaming a zip needs a small Lambda or client-side zipping.
 - **Instant revocation at the edge.** "Delete link now" removes the S3 object immediately, but CloudFront may serve a cached copy for up to 5 minutes (and only to someone holding an unexpired signed URL, which lasts 15 minutes). An invalidation call on delete would close that gap.
+- **Zip at scale.** Zips come out of the home server's uplink; for heavy use a Lambda that zips next to S3 would remove that bottleneck.
 - Password-gate and expired-link screens are functional but weren't in the original design canvas.
