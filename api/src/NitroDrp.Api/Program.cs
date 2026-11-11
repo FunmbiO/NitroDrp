@@ -19,10 +19,11 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAmazonDynamoDB>(_ => DynamoShareStore.CreateClient(opts.Dynamo));
 builder.Services.AddSingleton<DynamoShareStore>(sp => new(sp.GetRequiredService<IAmazonDynamoDB>(), opts.Dynamo));
 builder.Services.AddSingleton<IShareStore>(sp => sp.GetRequiredService<DynamoShareStore>());
-builder.Services.AddSingleton<IFileStorage>(_ => new S3FileStorage(
+builder.Services.AddSingleton<S3FileStorage>(_ => new S3FileStorage(
     S3FileStorage.CreateClient(opts.S3, opts.S3.ServiceUrl),
     S3FileStorage.CreateClient(opts.S3, opts.S3.PublicServiceUrl ?? opts.S3.ServiceUrl),
     opts.S3));
+builder.Services.AddSingleton<IFileStorage>(sp => sp.GetRequiredService<S3FileStorage>());
 if (opts.CloudFront.Enabled)
 {
     // Downloads via CloudFront signed URLs; uploads still go straight to S3.
@@ -88,6 +89,9 @@ app.UseRateLimiter();
 
 if (opts.Dynamo.AutoCreateTable)
     await app.Services.GetRequiredService<DynamoShareStore>().EnsureTableAsync(CancellationToken.None);
+
+if (opts.S3.AutoCreateBucket)
+    await app.Services.GetRequiredService<S3FileStorage>().EnsureBucketAsync(CancellationToken.None);
 
 app.MapShareEndpoints();
 app.Run();

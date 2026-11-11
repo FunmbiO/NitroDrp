@@ -29,6 +29,9 @@ public sealed class S3Options
     public string? PublicServiceUrl { get; set; }
 
     public bool ForcePathStyle { get; set; }
+
+    /// <summary>Dev only: create the bucket at startup. In AWS the bucket is created by Terraform.</summary>
+    public bool AutoCreateBucket { get; set; }
     public string? AccessKey { get; set; }
     public string? SecretKey { get; set; }
 

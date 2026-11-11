@@ -42,6 +42,18 @@ public sealed class S3FileStorage : IFileStorage
             : new AmazonS3Client(cfg);
     }
 
+    /// <summary>Idempotent: a bucket we already own is fine.</summary>
+    public async Task EnsureBucketAsync(CancellationToken ct)
+    {
+        try
+        {
+            await _s3.PutBucketAsync(new PutBucketRequest { BucketName = _o.Bucket }, ct);
+        }
+        catch (AmazonS3Exception e) when (e.ErrorCode is "BucketAlreadyOwnedByYou" or "BucketAlreadyExists")
+        {
+        }
+    }
+
     public async Task<string> BeginMultipartAsync(string key, string contentType, CancellationToken ct)
     {
         var r = await _s3.InitiateMultipartUploadAsync(
