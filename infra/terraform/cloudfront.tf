@@ -49,6 +49,13 @@ resource "aws_cloudfront_public_key" "downloads" {
 
   name        = "${var.table_name}-downloads"
   encoded_key = var.cloudfront_public_key_pem
+
+  lifecycle {
+    precondition {
+      condition     = startswith(trimspace(var.cloudfront_public_key_pem), "-----BEGIN PUBLIC KEY-----")
+      error_message = "enable_cloudfront is true, so cloudfront_public_key_pem must hold the contents of cf-public.pem (starting with -----BEGIN PUBLIC KEY-----). Never paste the private key. Or set enable_cloudfront = false to deploy without CloudFront."
+    }
+  }
 }
 
 resource "aws_cloudfront_key_group" "downloads" {
