@@ -2,14 +2,24 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { formatBytes } from '../lib/format'
-import { addRecent, getApiKey, setApiKey } from '../lib/storage'
-import { uploadParts, xhrPutPart } from '../lib/upload'
+import { matchFiles, sigOf } from '../lib/resume'
+import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
+import { uploadParts, xhrPutPart, type UploadedPart } from '../lib/upload'
 import { CheckIcon, CloseIcon, FileIcon, UploadIcon } from '../components/Icons'
 
 interface Item {
   file: File
   uploaded: number
   done: boolean
+}
+
+/** What to upload for one selected file, whether the share is brand new or being resumed. */
+interface FilePlan {
+  id: string
+  size: number
+  partCount: number
+  complete: boolean
+  parts: UploadedPart[]
 }
 
 const EXPIRY = [
@@ -31,6 +41,12 @@ export function UploadPage() {
   const [apiKey, setKey] = useState(getApiKey)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [pending, setPending] = useState<PendingUpload | null>(getPending)
+
+  // Resuming = the user re-picked exactly the files of an unfinished upload.
+  const resumeMap = pending ? matchFiles(pending.files, items.map((i) => sigOf(i.file))) : null
+  const resuming = resumeMap !== null
+  const locked = busy || resuming
 
   const total = items.reduce((a, i) => a + i.file.size, 0)
 
@@ -41,49 +57,110 @@ export function UploadPage() {
   }
   const patch = (index: number, p: Partial<Item>) => setItems((cur) => cur.map((it, i) => (i === index ? { ...it, ...p } : it)))
 
+  async function discardPending() {
+    if (pending) await api.deleteShare(pending.token, pending.ownerKey).catch(() => {})
+    clearPending()
+    setPending(null)
+  }
+
   async function send() {
     setError('')
     setBusy(true)
     const ctl = new AbortController()
     abort.current = ctl
-    let created: Awaited<ReturnType<typeof api.createShare>> | undefined
     try {
-      setApiKey(apiKey.trim())
-      created = await api.createShare(apiKey.trim(), {
-        files: items.map((i) => ({ name: i.file.name, size: i.file.size, contentType: i.file.type || 'application/octet-stream' })),
-        expiresInDays: days,
-        password: usePw && password ? password : undefined,
-        downloadLimit: limit ? Number(limit) : undefined,
-      })
-      const share = created
+      const key = apiKey.trim()
+      setApiKey(key)
 
-      for (const [index, meta] of share.files.entries()) {
-        const parts = await uploadParts(items[index].file, share.partSize, meta.partCount, {
-          signal: ctl.signal,
-          presign: (n) => api.presign(share.token, meta.id, share.ownerKey, n),
-          putPart: xhrPutPart,
-          onProgress: (uploaded) => patch(index, { uploaded }),
+      let token: string
+      let ownerKey: string
+      let expiresAt: string
+      let partSize: number
+      let finalized = false
+      let plans: FilePlan[] // aligned with `items`
+
+      if (pending && resumeMap) {
+        let status
+        try {
+          status = await api.uploadStatus(pending.token, pending.ownerKey)
+        } catch (e) {
+          clearPending()
+          setPending(null)
+          throw new Error(
+            e instanceof ApiError && e.status === 410
+              ? 'That unfinished upload expired. Your files are still selected: press Create link to start again.'
+              : 'Could not resume that upload. Your files are still selected: press Create link to start again.',
+          )
+        }
+        ;({ token, ownerKey } = pending)
+        expiresAt = status.expiresAt
+        partSize = status.partSize
+        finalized = status.finalized
+        plans = []
+        pending.files.forEach((_, p) => {
+          plans[resumeMap[p]] = status.files[p]
         })
-        await api.completeFile(share.token, meta.id, share.ownerKey, parts)
-        patch(index, { uploaded: meta.size, done: true })
+      } else {
+        const created = await api.createShare(key, {
+          files: items.map((i) => ({ name: i.file.name, size: i.file.size, contentType: i.file.type || 'application/octet-stream' })),
+          expiresInDays: days,
+          password: usePw && password ? password : undefined,
+          downloadLimit: limit ? Number(limit) : undefined,
+        })
+        ;({ token, ownerKey, expiresAt, partSize } = created)
+        plans = created.files.map((f) => ({ id: f.id, size: f.size, partCount: f.partCount, complete: false, parts: [] }))
+        const p: PendingUpload = {
+          token,
+          ownerKey,
+          createdAt: new Date().toISOString(),
+          expiresAt,
+          files: items.map((i) => sigOf(i.file)),
+          passwordProtected: usePw && !!password,
+          downloadLimit: limit ? Number(limit) : null,
+        }
+        savePending(p) // from here on a crash or closed tab can be resumed
+        setPending(p)
       }
-      await api.finalize(share.token, share.ownerKey)
 
+      if (!finalized) {
+        for (const [index, plan] of plans.entries()) {
+          if (plan.complete) {
+            patch(index, { uploaded: plan.size, done: true })
+            continue
+          }
+          const parts = await uploadParts(items[index].file, partSize, plan.partCount, {
+            signal: ctl.signal,
+            alreadyUploaded: plan.parts,
+            presign: (n) => api.presign(token, plan.id, ownerKey, n),
+            putPart: xhrPutPart,
+            onProgress: (uploaded) => patch(index, { uploaded }),
+          })
+          await api.completeFile(token, plan.id, ownerKey, parts)
+          patch(index, { uploaded: plan.size, done: true })
+        }
+      }
+      await api.finalize(token, ownerKey)
+
+      const info = getPending()
       addRecent({
-        token: share.token,
-        ownerKey: share.ownerKey,
-        createdAt: new Date().toISOString(),
-        expiresAt: share.expiresAt,
+        token,
+        ownerKey,
+        createdAt: info?.createdAt ?? new Date().toISOString(),
+        expiresAt,
         fileCount: items.length,
         totalSize: total,
-        passwordProtected: usePw && !!password,
-        downloadLimit: limit ? Number(limit) : null,
+        passwordProtected: info?.passwordProtected ?? false,
+        downloadLimit: info?.downloadLimit ?? null,
       })
-      nav(`/created/${share.token}`)
+      clearPending()
+      nav(`/created/${token}`)
     } catch (err) {
-      if (created && !ctl.signal.aborted) await api.deleteShare(created.token, created.ownerKey).catch(() => {})
-      if (!ctl.signal.aborted) setError(err instanceof ApiError || err instanceof Error ? err.message : 'Upload failed.')
-      setItems((cur) => cur.map((i) => ({ ...i, uploaded: 0, done: false })))
+      if (ctl.signal.aborted) return // the user cancelled; cancel() already cleaned up
+      // Keep the pending upload: the files are still selected, so the button turns into "Resume upload".
+      const base = err instanceof Error ? err.message : 'Upload failed.'
+      setError(getPending() ? `${base} Your progress is saved: press Resume upload to continue.` : base)
+      setPending(getPending())
+      setItems((cur) => cur.map((i) => (i.done ? i : { ...i, uploaded: 0 })))
       setBusy(false)
     }
   }
@@ -92,9 +169,10 @@ export function UploadPage() {
     abort.current?.abort()
     setBusy(false)
     setItems((cur) => cur.map((i) => ({ ...i, uploaded: 0, done: false })))
+    await discardPending()
   }
 
-  const canSend = items.length > 0 && !busy && apiKey.trim().length > 0 && (!usePw || password.length > 0)
+  const canSend = items.length > 0 && !busy && apiKey.trim().length > 0 && (resuming || !usePw || password.length > 0)
 
   return (
     <main className="page">
@@ -108,6 +186,16 @@ export function UploadPage() {
 
       <div className="layout">
         <div className="main">
+          {pending && !busy && (
+            <div className="notice" role="status">
+              <p>
+                {resuming
+                  ? 'Those are the files from your unfinished upload. Press Resume upload to carry on.'
+                  : `Unfinished upload: ${pending.files.length} file${pending.files.length === 1 ? '' : 's'} (${formatBytes(pending.files.reduce((a, f) => a + f.size, 0))}). Pick the same files to resume it.`}
+              </p>
+              <button type="button" className="link-btn" onClick={discardPending}>Discard</button>
+            </div>
+          )}
           <div
             className={`drop${over ? ' over' : ''}`}
             onDragOver={(e) => {
@@ -168,7 +256,7 @@ export function UploadPage() {
             <div className="group-title">Link expires after</div>
             <div className="pills">
               {EXPIRY.map((o) => (
-                <button key={o.days} type="button" className="pill" aria-pressed={days === o.days} onClick={() => setDays(o.days)}>
+                <button key={o.days} type="button" className="pill" disabled={locked} aria-pressed={days === o.days} onClick={() => setDays(o.days)}>
                   {o.label}
                 </button>
               ))}
@@ -177,20 +265,20 @@ export function UploadPage() {
 
           <div className="stack" style={{ gap: 10 }}>
             <label className="check">
-              <input type="checkbox" checked={usePw} onChange={(e) => setUsePw(e.target.checked)} />
+              <input type="checkbox" checked={usePw} disabled={locked} onChange={(e) => setUsePw(e.target.checked)} />
               <span>Require a password</span>
             </label>
             {usePw && (
               <div className="field">
                 <label htmlFor="pw" className="muted" style={{ fontWeight: 400, fontSize: 14 }}>Password</label>
-                <input id="pw" className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input id="pw" className="input" type="password" autoComplete="new-password" disabled={locked} value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             )}
           </div>
 
           <div className="field">
             <label htmlFor="limit">Download limit</label>
-            <input id="limit" className="input" type="number" min={1} max={10000} placeholder="Unlimited" value={limit} onChange={(e) => setLimit(e.target.value)} />
+            <input id="limit" className="input" type="number" min={1} max={10000} placeholder="Unlimited" disabled={locked} value={limit} onChange={(e) => setLimit(e.target.value)} />
           </div>
 
           <div className="field">
@@ -198,13 +286,14 @@ export function UploadPage() {
             <input id="key" className="input" type="password" autoComplete="current-password" placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
           </div>
 
+          {resuming && <p className="hint">Resuming with the settings you chose the first time.</p>}
           {error && <p className="error" role="alert">{error}</p>}
 
           <div className="stack" style={{ paddingTop: 4 }}>
             {busy ? (
               <button type="button" className="btn big" onClick={cancel}>Cancel upload</button>
             ) : (
-              <button type="submit" className="btn big" disabled={!canSend}>Create link</button>
+              <button type="submit" className="btn big" disabled={!canSend}>{resuming ? 'Resume upload' : 'Create link'}</button>
             )}
             <div className="summary">
               {items.length} file{items.length === 1 ? '' : 's'} · {formatBytes(total)} total
