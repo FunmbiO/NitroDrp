@@ -46,8 +46,21 @@ export function DownloadPage() {
     )
   }
 
-  const share = unlocked ?? state.share
+  // Files come from the unlocked view (if any); the counter always comes from the latest fetch.
+  const share: ShareView = { ...(unlocked ?? state.share), downloadsRemaining: state.share.downloadsRemaining }
   const files = share.files
+  const exhausted = share.downloadsRemaining === 0
+
+  /** Re-read the public view so "N downloads left" stays honest after each download. */
+  function refresh() {
+    api.getShare(token).then(
+      (s) => setState({ kind: 'ready', share: s }),
+      (e) => {
+        if (e instanceof ApiError && e.code === 'limit_reached')
+          setState((cur) => (cur.kind === 'ready' ? { kind: 'ready', share: { ...cur.share, downloadsRemaining: 0 } } : cur))
+      },
+    )
+  }
 
   async function unlock(e: React.FormEvent) {
     e.preventDefault()
@@ -72,7 +85,7 @@ export function DownloadPage() {
         if (i > 0) await new Promise((r) => setTimeout(r, 400))
         trigger(l.url)
       }
-      api.getShare(token).then((s) => setState({ kind: 'ready', share: s })).catch(() => {})
+      refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed.')
     } finally {
@@ -87,7 +100,7 @@ export function DownloadPage() {
     setBusy(true)
     try {
       trigger(await api.zipLink(token, password || undefined))
-      api.getShare(token).then((s) => setState({ kind: 'ready', share: s })).catch(() => {})
+      refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed.')
     } finally {
@@ -119,10 +132,11 @@ export function DownloadPage() {
           </form>
         ) : (
           <>
-            <button type="button" className="btn big" disabled={busy} onClick={downloadAll}>
+            <button type="button" className="btn big" disabled={busy || exhausted} onClick={downloadAll}>
               <DownloadIcon />
               {share.fileCount > 1 ? 'Download all as .zip' : 'Download'}
             </button>
+            {exhausted && <p className="error" role="status">This link has reached its download limit.</p>}
             {error && <p className="error" role="alert">{error}</p>}
             {files && (
               <div className="dl-list">
@@ -132,7 +146,7 @@ export function DownloadPage() {
                       <span className="name">{f.name}</span>
                       <span className="meta">{formatBytes(f.size)}</span>
                     </div>
-                    <button type="button" className="icon-btn lime" disabled={busy} aria-label={`Download ${f.name}`} onClick={() => download(f.id)}>
+                    <button type="button" className="icon-btn lime" disabled={busy || exhausted} aria-label={`Download ${f.name}`} onClick={() => download(f.id)}>
                       <DownloadIcon size={22} />
                     </button>
                   </div>
