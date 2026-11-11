@@ -27,7 +27,10 @@ services:
     depends_on: [api]
     environment:
       FRAME_ANCESTORS: ${FRAME_ANCESTORS:-'none'}
-    ports: ["8080:80"]
+    # Loopback only. The tunnel reaches this container over Docker's internal network, so nothing
+    # needs the port open to your LAN. The API trusts the X-Client-IP header nginx builds from
+    # CF-Connecting-IP for rate limiting, which anyone who could reach this port directly could forge.
+    ports: ["127.0.0.1:8080:80"]
 
   cloudflared:
     image: cloudflare/cloudflared:latest

@@ -31,7 +31,7 @@ services:
   s3-edge:
     image: nginx:1.27-alpine
     depends_on: [s3]
-    ports: ["9000:9000"]
+    ports: ["127.0.0.1:9000:9000"]   # the browser on this machine uploads parts here
     volumes: ["./dev/s3-edge.conf:/etc/nginx/conf.d/default.conf:ro"]
 
   dynamodb:
