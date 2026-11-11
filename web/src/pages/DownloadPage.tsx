@@ -80,6 +80,21 @@ export function DownloadPage() {
     }
   }
 
+  /** Several files arrive as one streamed .zip; a single file downloads directly. */
+  async function downloadAll() {
+    if (share.fileCount <= 1) return download()
+    setError('')
+    setBusy(true)
+    try {
+      trigger(await api.zipLink(token, password || undefined))
+      api.getShare(token).then((s) => setState({ kind: 'ready', share: s })).catch(() => {})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <main className="page narrow">
       <div className="card roomy" style={{ gap: 24 }}>
@@ -104,9 +119,9 @@ export function DownloadPage() {
           </form>
         ) : (
           <>
-            <button type="button" className="btn big" disabled={busy} onClick={() => download()}>
+            <button type="button" className="btn big" disabled={busy} onClick={downloadAll}>
               <DownloadIcon />
-              {share.fileCount > 1 ? 'Download all' : 'Download'}
+              {share.fileCount > 1 ? 'Download all as .zip' : 'Download'}
             </button>
             {error && <p className="error" role="alert">{error}</p>}
             {files && (

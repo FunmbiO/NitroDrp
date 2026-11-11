@@ -70,6 +70,8 @@ export const api = {
 
   getShare: (token: string) => call<ShareView>('GET', `/shares/${token}`),
   unlock: (token: string, password: string) => call<ShareView>('POST', `/shares/${token}/unlock`, { body: { password } }),
+  zipLink: (token: string, password?: string) =>
+    call<{ url: string }>('POST', `/shares/${token}/zip-link`, { body: { password } }).then((r) => r.url),
   download: (token: string, password?: string, fileId?: string) =>
     call<{ files: DownloadLink[] }>('POST', `/shares/${token}/download`, { body: { password, fileId } }).then((r) => r.files),
 }
