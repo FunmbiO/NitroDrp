@@ -115,6 +115,11 @@ data "aws_iam_policy_document" "api" {
     resources = [aws_s3_bucket.files.arn]
   }
   statement {
+    # Lets "Delete link now" purge the edge cache. Scoped to this one distribution.
+    actions   = ["cloudfront:CreateInvalidation"]
+    resources = [aws_cloudfront_distribution.downloads.arn]
+  }
+  statement {
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchWriteItem"]
     resources = [aws_dynamodb_table.shares.arn]
   }

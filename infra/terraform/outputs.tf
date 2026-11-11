@@ -20,3 +20,8 @@ output "cloudfront_key_pair_id" {
   description = "Set as NitroDrp__CloudFront__KeyPairId."
   value       = aws_cloudfront_public_key.downloads.id
 }
+
+output "cloudfront_distribution_id" {
+  description = "Set as NitroDrp__CloudFront__DistributionId so deleting a link purges the edge cache."
+  value       = aws_cloudfront_distribution.downloads.id
+}
