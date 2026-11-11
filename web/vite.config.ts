@@ -7,7 +7,9 @@ export default defineConfig({
   server: {
     port: 5173,
     // `npm run dev` talks to the API started with `dotnet run` (see README)
-    proxy: { '/api': 'http://localhost:8080' },
+    proxy: { '/api': 'http://localhost:8080', '/mock-storage': 'http://localhost:8080' },
+    host: true,
+    allowedHosts: true, // dev server only: lets a cloud/remote preview hostname load the page
   },
   test: { environment: 'node' },
 })
