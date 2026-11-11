@@ -2,7 +2,7 @@
 
 Runs the app on a small always-on server with its own IP. Caddy gets and renews the HTTPS certificate by
 itself, so there's no Cloudflare and no need to move your domain's DNS: you add **one A record** wherever
-the domain's DNS lives (Namecheap, for `jadedmedia.ca`). Examples below use `send.jadedmedia.ca`.
+the domain's DNS lives (Namecheap, for `jadedmedia.ca`). Examples below use `drop.jadedmedia.ca`.
 
 Cost: roughly US$7-10 a month for the server (needs at least 1 GB of memory), plus about US$1-2 for S3 and
 DynamoDB. Check current prices on the Lightsail pricing page.
@@ -22,11 +22,11 @@ for the `nitrodrp-api` user.
    Optional: add UDP 443 for HTTP/3, and restrict SSH to your own IP.
 
 ## 2. Point the subdomain at it (Namecheap)
-**Domain List -> Manage -> Advanced DNS -> Add new record**: type **A Record**, host `send`, value = the static
+**Domain List -> Manage -> Advanced DNS -> Add new record**: type **A Record**, host `drop`, value = the static
 IP, TTL Automatic. Leave every other record alone. Check from PowerShell:
 
 ```powershell
-Resolve-DnsName send.jadedmedia.ca -Type A
+Resolve-DnsName drop.jadedmedia.ca -Type A
 ```
 
 Wait until it shows your IP before step 5, because Caddy needs it to prove you own the name. If the domain has
@@ -69,7 +69,7 @@ Put that in `.env` as `API_KEY` (and save it in a password manager), then edit w
 | `AWS_REGION` | `us-east-2` |
 | `S3_BUCKET`, `DYNAMO_TABLE` | from `terraform output` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | a **new** access key for `nitrodrp-api` (IAM console), one per server |
-| `SITE_ADDRESS` | `send.jadedmedia.ca` |
+| `SITE_ADDRESS` | `drop.jadedmedia.ca` |
 
 Leave the `CLOUDFRONT_*` and `TUNNEL_TOKEN` values empty.
 
@@ -78,7 +78,7 @@ On your own computer, add the hostname to `allowed_origins` in `infra/terraform/
 While you're there, raise the budget alert, since the server alone is close to the default US$10:
 
 ```hcl
-allowed_origins    = ["https://send.jadedmedia.ca", "http://localhost:8080"]
+allowed_origins    = ["https://drop.jadedmedia.ca", "http://localhost:8080"]
 monthly_budget_usd = 20
 ```
 
@@ -102,15 +102,15 @@ docker compose logs caddy
 Look for "certificate obtained successfully".
 
 ## 7. Verify
-- `https://send.jadedmedia.ca/api/health` returns `{"status":"ok"}`.
+- `https://drop.jadedmedia.ca/api/health` returns `{"status":"ok"}`.
 - From your computer (needs Python 3): the full upload/resume/download/zip/delete check, then the rate-limit check.
 
 ```bash
-API_KEY=your-api-key python3 dev/smoke.py https://send.jadedmedia.ca
+API_KEY=your-api-key python3 dev/smoke.py https://drop.jadedmedia.ca
 ```
 
 ```bash
-python3 dev/ratelimit-check.py https://send.jadedmedia.ca
+python3 dev/ratelimit-check.py https://drop.jadedmedia.ca
 ```
 
 The first should print twelve PASS lines. The second should print PASS: the server overwrites forged
@@ -129,5 +129,5 @@ client-IP headers, so a visitor can't dodge the password-guess limit.
 | No certificate / browser warning | DNS doesn't point at the static IP yet, or ports 80/443 are closed in the Lightsail firewall. Check `docker compose logs caddy`. Fix it, then `docker compose restart caddy`. |
 | 502 Bad Gateway | The API isn't running. `docker compose logs api` (usually a missing value in `.env`). |
 | Build killed or "out of memory" | Add the swap file from step 3, or move to the next plan size. |
-| Uploads fail with a CORS error | `allowed_origins` doesn't exactly match `https://send.jadedmedia.ca`. Re-run `terraform apply`. |
+| Uploads fail with a CORS error | `allowed_origins` doesn't exactly match `https://drop.jadedmedia.ca`. Re-run `terraform apply`. |
 | `AccessDenied` in the API log | The AWS access key in `.env` is wrong or inactive. |
