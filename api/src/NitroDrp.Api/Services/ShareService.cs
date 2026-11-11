@@ -6,7 +6,7 @@ namespace NitroDrp.Api.Services;
 
 /// <summary>All business rules live here so they can be tested without HTTP, S3 or DynamoDB.</summary>
 public sealed class ShareService(
-    IShareStore store, IFileStorage storage, IOptions<NitroDrpOptions> options, TimeProvider clock)
+    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IOptions<NitroDrpOptions> options, TimeProvider clock)
 {
     private const int MaxS3Parts = 10_000;
     private const int MaxPartsPerPresign = 100;
@@ -157,7 +157,7 @@ public sealed class ShareService(
 
         var ttl = TimeSpan.FromMinutes(_o.S3.DownloadUrlMinutes);
         return new DownloadResponse(targets
-            .Select(f => new DownloadLink(f.Id, f.Name, f.Size, storage.PresignDownload(f.StorageKey, f.Name, ttl)))
+            .Select(f => new DownloadLink(f.Id, f.Name, f.Size, links.Sign(f.StorageKey, f.Name, ttl)))
             .ToList());
     }
 

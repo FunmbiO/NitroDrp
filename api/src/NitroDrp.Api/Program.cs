@@ -23,6 +23,7 @@ builder.Services.AddSingleton<IFileStorage>(_ => new S3FileStorage(
     S3FileStorage.CreateClient(opts.S3, opts.S3.ServiceUrl),
     S3FileStorage.CreateClient(opts.S3, opts.S3.PublicServiceUrl ?? opts.S3.ServiceUrl),
     opts.S3));
+builder.Services.AddSingleton<IDownloadLinkSigner>(sp => new S3DownloadLinkSigner(sp.GetRequiredService<IFileStorage>()));
 builder.Services.AddSingleton<ShareService>();
 
 // The API only ever sits behind our nginx, which sets X-Client-IP from Cloudflare's CF-Connecting-IP
