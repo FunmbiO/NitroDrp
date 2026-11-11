@@ -1,7 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY src/NitroDrp.Api/NitroDrp.Api.csproj src/NitroDrp.Api/
-RUN dotnet restore src/NitroDrp.Api/NitroDrp.Api.csproj
+# --locked-mode: build with exactly the package versions in packages.lock.json, or fail.
+COPY src/NitroDrp.Api/NitroDrp.Api.csproj src/NitroDrp.Api/packages.lock.json src/NitroDrp.Api/
+RUN dotnet restore src/NitroDrp.Api/NitroDrp.Api.csproj --locked-mode
 COPY src/ src/
 RUN dotnet publish src/NitroDrp.Api/NitroDrp.Api.csproj -c Release -o /out --no-restore
 

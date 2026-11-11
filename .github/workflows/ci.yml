@@ -12,7 +12,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet test api/NitroDrp.sln --configuration Release
+      - run: dotnet restore api/NitroDrp.sln --locked-mode
+      - run: dotnet test api/NitroDrp.sln --configuration Release --no-restore
 
   web:
     runs-on: ubuntu-latest
