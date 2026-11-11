@@ -9,6 +9,7 @@ public sealed class NitroDrpOptions
     public string ApiKey { get; set; } = "";
 
     public S3Options S3 { get; set; } = new();
+    public CloudFrontOptions CloudFront { get; set; } = new();
     public DynamoOptions Dynamo { get; set; } = new();
     public LimitOptions Limits { get; set; } = new();
 }
@@ -34,6 +35,21 @@ public sealed class S3Options
     public int PartSizeBytes { get; set; } = 16 * 1024 * 1024;
     public int UploadUrlMinutes { get; set; } = 60;
     public int DownloadUrlMinutes { get; set; } = 15;
+}
+
+/// <summary>Optional. When Domain is set, downloads go through CloudFront signed URLs instead of S3 presigned URLs.</summary>
+public sealed class CloudFrontOptions
+{
+    /// <summary>Distribution domain or alias, e.g. d111111abcdef8.cloudfront.net</summary>
+    public string? Domain { get; set; }
+
+    /// <summary>ID of the CloudFront public key (Terraform output cloudfront_key_pair_id).</summary>
+    public string? KeyPairId { get; set; }
+
+    /// <summary>Path to the matching RSA private key in PEM format.</summary>
+    public string? PrivateKeyPath { get; set; }
+
+    public bool Enabled => !string.IsNullOrWhiteSpace(Domain);
 }
 
 public sealed class DynamoOptions
