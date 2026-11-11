@@ -25,11 +25,11 @@ export interface ShareView {
 }
 export interface DownloadLink { id: string; name: string; size: number; url: string }
 
-export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
-    super(message)
-  }
-}
+import { ApiError } from './errors'
+export { ApiError }
+
+/** A zip is downloaded by navigating to `url`. `fileName` is only needed when the server can't name it (demo mode). */
+export interface ZipLink { url: string; fileName?: string }
 
 async function call<T>(method: string, path: string, opts: { body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -48,7 +48,7 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; hea
 
 const owner = (key: string) => ({ 'X-Owner-Key': key })
 
-export const api = {
+export const realApi = {
   createShare: (
     apiKey: string,
     body: { files: { name: string; size: number; contentType: string }[]; expiresInDays: number; password?: string; downloadLimit?: number },
@@ -70,8 +70,12 @@ export const api = {
 
   getShare: (token: string) => call<ShareView>('GET', `/shares/${token}`),
   unlock: (token: string, password: string) => call<ShareView>('POST', `/shares/${token}/unlock`, { body: { password } }),
-  zipLink: (token: string, password?: string) =>
-    call<{ url: string }>('POST', `/shares/${token}/zip-link`, { body: { password } }).then((r) => r.url),
+  zipLink: (token: string, password?: string): Promise<ZipLink> =>
+    call<{ url: string }>('POST', `/shares/${token}/zip-link`, { body: { password } }),
   download: (token: string, password?: string, fileId?: string) =>
     call<{ files: DownloadLink[] }>('POST', `/shares/${token}/download`, { body: { password, fileId } }).then((r) => r.files),
 }
+
+export type Api = typeof realApi
+
+export const api: Api = realApi

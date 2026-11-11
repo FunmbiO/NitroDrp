@@ -10,9 +10,10 @@ type State =
   | { kind: 'gone'; message: string }
 
 /** Starts a browser download without navigating away from the page. */
-function trigger(url: string) {
+function trigger(url: string, fileName?: string) {
   const a = document.createElement('a')
   a.href = url
+  if (fileName) a.download = fileName // only honoured for same-origin/blob URLs, which is all demo mode uses
   a.rel = 'noopener'
   document.body.appendChild(a)
   a.click()
@@ -83,7 +84,7 @@ export function DownloadPage() {
       // Browsers may block many programmatic downloads at once; space them out.
       for (const [i, l] of links.entries()) {
         if (i > 0) await new Promise((r) => setTimeout(r, 400))
-        trigger(l.url)
+        trigger(l.url, l.name)
       }
       refresh()
     } catch (err) {
@@ -99,7 +100,8 @@ export function DownloadPage() {
     setError('')
     setBusy(true)
     try {
-      trigger(await api.zipLink(token, password || undefined))
+      const zip = await api.zipLink(token, password || undefined)
+      trigger(zip.url, zip.fileName)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed.')
