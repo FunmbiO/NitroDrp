@@ -97,11 +97,24 @@ Once it's up, check the whole stack without a browser (needs Python 3 only):
 python3 dev/smoke.py
 ```
 
+And against a deployed site, to prove the proxy in front stops visitors from dodging the rate limit with forged headers (`PASS` expected):
+
+```bash
+python3 dev/ratelimit-check.py https://send.example.com
+```
+
 It creates a share, uploads a 40 MB file in parts with a simulated crash and resume, finalizes, downloads, streams a zip and compares every byte, then deletes. Twelve PASS lines means storage, the database and the API are all wired correctly.
 
 Without Docker, run the pieces yourself: start an S3 emulator and DynamoDB Local, then `dotnet run --project api/src/NitroDrp.Api` (port 8080 via `ASPNETCORE_URLS`) and `cd web && npm run dev`.
 
-## Deploy (home server + AWS)
+## Deploy (AWS, plus a server or a PC)
+
+Three ways to expose it, all with the same AWS backend:
+
+- **A small AWS Lightsail server** with automatic HTTPS (Caddy). Always on, and your domain's DNS stays wherever it is: [docs/LIGHTSAIL.md](docs/LIGHTSAIL.md).
+- **A Cloudflare Tunnel** from any machine (a home server or a PC). Needs the domain's DNS on Cloudflare: steps below.
+- **Locally only**, at `http://localhost:8080`.
+
 
 1. Generate the key that signs download URLs. The private key never leaves your server:
    ```bash
