@@ -112,6 +112,8 @@ Without Docker, run the pieces yourself: start an S3 emulator and DynamoDB Local
 Three ways to expose it, all with the same AWS backend:
 
 - **A small AWS Lightsail server** with automatic HTTPS (Caddy). Always on, and your domain's DNS stays wherever it is: [docs/LIGHTSAIL.md](docs/LIGHTSAIL.md).
+
+On any server, `./deploy/setup-env.sh` writes your `.env` by asking for each value (no hand-editing), and generates the API key.
 - **A Cloudflare Tunnel** from any machine (a home server or a PC). Needs the domain's DNS on Cloudflare: steps below.
 - **Locally only**, at `http://localhost:8080`.
 
