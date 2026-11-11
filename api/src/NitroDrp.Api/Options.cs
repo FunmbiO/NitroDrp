@@ -49,6 +49,9 @@ public sealed class CloudFrontOptions
     /// <summary>Path to the matching RSA private key in PEM format.</summary>
     public string? PrivateKeyPath { get; set; }
 
+    /// <summary>Distribution ID (Terraform output cloudfront_distribution_id). When set, deleting a link also invalidates the edge cache.</summary>
+    public string? DistributionId { get; set; }
+
     public bool Enabled => !string.IsNullOrWhiteSpace(Domain);
 }
 
