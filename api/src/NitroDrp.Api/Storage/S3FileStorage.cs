@@ -47,7 +47,13 @@ public sealed class S3FileStorage : IFileStorage
     {
         try
         {
-            await _s3.PutBucketAsync(new PutBucketRequest { BucketName = _o.Bucket }, ct);
+            // Outside us-east-1 S3 requires a location constraint. The SDK adds it only for AWS's own
+            // endpoints, not when ServiceURL points at an emulator, so say it explicitly (us-east-1 must omit it).
+            await _s3.PutBucketAsync(new PutBucketRequest
+            {
+                BucketName = _o.Bucket,
+                BucketRegionName = _o.Region == "us-east-1" ? null : _o.Region,
+            }, ct);
         }
         catch (AmazonS3Exception e) when (e.ErrorCode is "BucketAlreadyOwnedByYou" or "BucketAlreadyExists")
         {
