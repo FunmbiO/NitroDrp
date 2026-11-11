@@ -57,6 +57,12 @@ public sealed class FakeStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    /// <summary>Parts a test pretends S3 already has, keyed by storage key.</summary>
+    public Dictionary<string, List<StoredPart>> Parts { get; } = [];
+
+    public Task<IReadOnlyList<StoredPart>?> ListPartsAsync(string key, string uploadId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<StoredPart>?>(OpenUploads.Contains(key) ? Parts.GetValueOrDefault(key, []) : null);
+
     public Task AbortMultipartAsync(string key, string uploadId, CancellationToken ct) { OpenUploads.Remove(key); return Task.CompletedTask; }
     public Task<long?> GetObjectSizeAsync(string key, CancellationToken ct) => Task.FromResult(Objects.TryGetValue(key, out var s) ? (long?)s : null);
     public string PresignDownload(string key, string fileName, TimeSpan ttl) => $"https://fake/{key}?dl={Uri.EscapeDataString(fileName)}";

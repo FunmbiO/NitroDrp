@@ -70,6 +70,27 @@ public sealed class S3FileStorage : IFileStorage
             PartETags = parts.OrderBy(p => p.PartNumber).Select(p => new PartETag(p.PartNumber, p.ETag)).ToList(),
         }, ct);
 
+    public async Task<IReadOnlyList<StoredPart>?> ListPartsAsync(string key, string uploadId, CancellationToken ct)
+    {
+        var parts = new List<StoredPart>();
+        var req = new ListPartsRequest { BucketName = _o.Bucket, Key = key, UploadId = uploadId };
+        try
+        {
+            ListPartsResponse resp;
+            do
+            {
+                resp = await _s3.ListPartsAsync(req, ct);
+                parts.AddRange(resp.Parts.Select(p => new StoredPart(p.PartNumber, p.ETag, p.Size)));
+                req.PartNumberMarker = resp.NextPartNumberMarker.ToString();
+            } while (resp.IsTruncated);
+        }
+        catch (AmazonS3Exception e) when (e.ErrorCode == "NoSuchUpload")
+        {
+            return null;
+        }
+        return parts;
+    }
+
     public Task AbortMultipartAsync(string key, string uploadId, CancellationToken ct) =>
         _s3.AbortMultipartUploadAsync(_o.Bucket, key, uploadId, ct);
 
