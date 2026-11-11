@@ -32,6 +32,13 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash dev/test-setup-env.sh
+      - run: python3 -m py_compile dev/smoke.py dev/ratelimit-check.py
+
   terraform:
     runs-on: ubuntu-latest
     defaults:
