@@ -9,6 +9,8 @@ export interface PartUploadDeps {
   /** PUT the bytes, resolve with the ETag header. */
   putPart: (url: string, body: Blob, onProgress: (loaded: number) => void, signal?: AbortSignal) => Promise<string>
   onProgress: (uploadedBytes: number) => void
+  /** Parts storage already holds (from a previous attempt). They are skipped and returned as-is. */
+  alreadyUploaded?: UploadedPart[]
   signal?: AbortSignal
   concurrency?: number
   maxAttempts?: number
@@ -29,7 +31,15 @@ export async function uploadParts(
 ): Promise<UploadedPart[]> {
   const { concurrency = 4, maxAttempts = 5, sleep = defaultSleep, signal } = deps
   const loaded = new Array<number>(partCount).fill(0)
+  const partBytes = (n: number) => Math.min(n * partSize, file.size) - (n - 1) * partSize
   const results: UploadedPart[] = []
+  const done = new Set<number>()
+  for (const p of deps.alreadyUploaded ?? []) {
+    if (p.partNumber < 1 || p.partNumber > partCount) continue
+    results.push(p)
+    done.add(p.partNumber)
+    loaded[p.partNumber - 1] = partBytes(p.partNumber)
+  }
   let next = 1
 
   const report = () => deps.onProgress(loaded.reduce((a, b) => a + b, 0))
@@ -65,10 +75,12 @@ export async function uploadParts(
   async function worker() {
     while (next <= partCount) {
       signal?.throwIfAborted()
-      await uploadOne(next++)
+      const n = next++
+      if (!done.has(n)) await uploadOne(n)
     }
   }
 
+  report()
   await Promise.all(Array.from({ length: Math.min(concurrency, partCount) }, worker))
   return results.sort((a, b) => a.partNumber - b.partNumber)
 }

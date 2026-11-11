@@ -66,4 +66,52 @@ describe('uploadParts', () => {
     })
     expect(last).toBe(30)
   })
+
+  it('skips parts that were already uploaded and still returns the full, ordered list', async () => {
+    const putCalls: number[] = []
+    let last = 0
+    const parts = await uploadParts(blob(25), 10, 3, {
+      presign: async (n) => `url-${n}`,
+      putPart: async (url) => {
+        putCalls.push(Number(url.split('-')[1]))
+        return 'new'
+      },
+      alreadyUploaded: [
+        { partNumber: 1, eTag: 'old1' },
+        { partNumber: 3, eTag: 'old3' },
+      ],
+      onProgress: (b) => (last = b),
+      sleep: async () => {},
+    })
+    expect(putCalls).toEqual([2])
+    expect(parts).toEqual([
+      { partNumber: 1, eTag: 'old1' },
+      { partNumber: 2, eTag: 'new' },
+      { partNumber: 3, eTag: 'old3' },
+    ])
+    expect(last).toBe(25) // part 3 is the 5-byte remainder
+  })
+
+  it('reports already-uploaded bytes straight away so a resumed bar starts where it left off', async () => {
+    const seen: number[] = []
+    await uploadParts(blob(30), 10, 3, {
+      presign: async () => 'u',
+      putPart: async () => 'e',
+      alreadyUploaded: [{ partNumber: 1, eTag: 'a' }, { partNumber: 2, eTag: 'b' }],
+      onProgress: (b) => seen.push(b),
+      sleep: async () => {},
+    })
+    expect(seen[0]).toBe(20)
+  })
+
+  it('ignores listed parts outside the file range', async () => {
+    const parts = await uploadParts(blob(10), 10, 1, {
+      presign: async () => 'u',
+      putPart: async () => 'e',
+      alreadyUploaded: [{ partNumber: 9, eTag: 'junk' }],
+      onProgress: () => {},
+      sleep: async () => {},
+    })
+    expect(parts).toEqual([{ partNumber: 1, eTag: 'e' }])
+  })
 })
