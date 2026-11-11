@@ -35,9 +35,16 @@ variable "budget_email" {
   type        = string
 }
 
+variable "enable_cloudfront" {
+  description = "Serve downloads through CloudFront. Set false to deploy S3-only (downloads come straight from S3, which bills egress after the first 100 GB/month), e.g. while AWS is still verifying the account for CloudFront. Flip to true and apply later."
+  type        = bool
+  default     = true
+}
+
 variable "cloudfront_public_key_pem" {
-  description = "PEM public key whose private half the API uses to sign download URLs. Generate with: openssl genrsa -out cf-private.pem 2048 && openssl rsa -pubout -in cf-private.pem -out cf-public.pem"
+  description = "PEM public key whose private half the API uses to sign download URLs. Required when enable_cloudfront is true. Generate with: openssl genrsa -out cf-private.pem 2048 && openssl rsa -pubout -in cf-private.pem -out cf-public.pem"
   type        = string
+  default     = ""
 }
 
 variable "cloudfront_price_class" {

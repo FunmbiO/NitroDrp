@@ -2,7 +2,10 @@ bucket_name     = "nitrodrp-files-CHANGE-ME"
 allowed_origins = ["https://drop.example.com"]
 budget_email    = "you@example.com"
 
-# Contents of cf-public.pem (see variables.tf for the openssl commands)
+# Set to false to deploy without CloudFront (downloads come straight from S3). Flip to true and re-apply later.
+enable_cloudfront = true
+
+# Contents of cf-public.pem (only needed when enable_cloudfront is true) (see variables.tf for the openssl commands)
 cloudfront_public_key_pem = <<-EOT
 -----BEGIN PUBLIC KEY-----
 ...
