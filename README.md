@@ -127,6 +127,17 @@ When AWS verifies the account, set `enable_cloudfront = true`, add the public ke
 
 Terraform has offline tests (`cd infra/terraform && terraform init -backend=false && terraform test`) that check both modes without an AWS account.
 
+## Pinned dependencies and ports
+
+Builds are reproducible on purpose:
+
+- **.NET:** every NuGet package has an exact version, and `api/**/packages.lock.json` also pins the transitive ones. The Dockerfile and CI restore with `--locked-mode`, so a build uses precisely these versions or fails. To upgrade deliberately: change the version, run `dotnet restore api/NitroDrp.sln --force-evaluate`, run the tests, and commit the lock files.
+- **npm:** `package-lock.json` with `npm ci`.
+- **Container images:** `cloudflared`, moto and DynamoDB Local use exact tags in the Compose files. Bump them on purpose and re-run `python3 dev/smoke.py`.
+- **Terraform:** `.terraform.lock.hcl` pins the AWS provider. If you use another OS or CPU, run `terraform providers lock -platform=linux_amd64 -platform=darwin_arm64 -platform=windows_amd64` once.
+
+The web container (and the dev S3 edge) publish only on `127.0.0.1`. The Cloudflare tunnel reaches nginx over Docker's internal network, so nothing needs your LAN to see it. That matters because the API rate-limits on a header nginx derives from Cloudflare's `CF-Connecting-IP`, which could be forged by anyone who could reach the port directly.
+
 ## Tests
 
 ```bash
