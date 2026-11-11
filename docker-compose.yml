@@ -25,6 +25,8 @@ services:
     build: ./web
     restart: unless-stopped
     depends_on: [api]
+    environment:
+      FRAME_ANCESTORS: ${FRAME_ANCESTORS:-'none'}
     ports: ["8080:80"]
 
   cloudflared:
