@@ -6,7 +6,7 @@ namespace NitroDrp.Api.Services;
 
 /// <summary>All business rules live here so they can be tested without HTTP, S3 or DynamoDB.</summary>
 public sealed class ShareService(
-    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock)
+    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IEdgeCache edge, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock, ILogger<ShareService> log)
 {
     private const int MaxS3Parts = 10_000;
     private const int MaxPartsPerPresign = 100;
@@ -218,9 +218,28 @@ public sealed class ShareService(
         var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
         foreach (var f in share.Files.Where(f => f is { Status: FileStatus.Uploading, UploadId: not null }))
             await storage.AbortMultipartAsync(f.StorageKey, f.UploadId!, ct);
-        await storage.DeleteAsync(share.Files.Where(f => f.Status == FileStatus.Complete).Select(f => f.StorageKey), ct);
+        var done = share.Files.Where(f => f.Status == FileStatus.Complete).Select(f => f.StorageKey).ToList();
+        await storage.DeleteAsync(done, ct);
         await store.DeleteAsync(token, ct);
+        if (done.Count > 0) await InvalidateEdgeAsync(done, ct);
     }
+
+    /// <summary>Best effort: the files are already gone, and cached copies lapse on their own (short TTL, expiring signed URLs).</summary>
+    private async Task InvalidateEdgeAsync(IReadOnlyCollection<string> keys, CancellationToken ct)
+    {
+        try
+        {
+            await edge.InvalidateAsync(EdgePaths(keys), ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogWarning(e, "CDN invalidation failed after deleting a share; cached copies will expire on their own.");
+        }
+    }
+
+    /// <summary>One wildcard per share folder ("d7/token/abc" -> "/d7/token/*"), so a delete costs a single invalidation path.</summary>
+    public static IReadOnlyCollection<string> EdgePaths(IEnumerable<string> storageKeys) =>
+        storageKeys.Select(k => "/" + k[..k.LastIndexOf('/')] + "/*").Distinct().ToList();
 
     public static int PartCount(long size, int partSize) => (int)((size + partSize - 1) / partSize);
 

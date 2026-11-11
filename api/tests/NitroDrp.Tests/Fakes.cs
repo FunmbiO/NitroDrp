@@ -74,3 +74,16 @@ public sealed class FakeStorage : IFileStorage
     public string PresignDownload(string key, string fileName, TimeSpan ttl) => $"https://fake/{key}?dl={Uri.EscapeDataString(fileName)}";
     public Task DeleteAsync(IEnumerable<string> keys, CancellationToken ct) { foreach (var k in keys) Objects.Remove(k); return Task.CompletedTask; }
 }
+
+public sealed class RecordingEdgeCache : IEdgeCache
+{
+    public List<string> Paths { get; } = [];
+    public Exception? Throw { get; set; }
+
+    public Task InvalidateAsync(IReadOnlyCollection<string> paths, CancellationToken ct)
+    {
+        if (Throw is not null) throw Throw;
+        Paths.AddRange(paths);
+        return Task.CompletedTask;
+    }
+}

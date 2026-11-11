@@ -38,6 +38,7 @@ else
     builder.Services.AddSingleton<IDownloadLinkSigner>(sp => new S3DownloadLinkSigner(sp.GetRequiredService<IFileStorage>()));
     builder.Services.AddSingleton<IObjectReader>(sp => new S3ObjectReader(sp.GetRequiredService<IFileStorage>()));
 }
+builder.Services.AddSingleton<IEdgeCache, NoEdgeCache>();
 builder.Services.AddSingleton(ZipLinks.FromApiKey(opts.ApiKey, TimeProvider.System));
 builder.Services.AddSingleton(new ZipGate(Math.Max(1, opts.Limits.MaxConcurrentZips)));
 builder.Services.AddSingleton<ShareService>();

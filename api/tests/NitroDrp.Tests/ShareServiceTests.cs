@@ -12,6 +12,7 @@ public class ShareServiceTests
     private readonly InMemoryShareStore _store = new();
     private readonly FakeStorage _storage = new();
     private readonly ManualClock _clock = new(new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero));
+    private readonly RecordingEdgeCache _edge = new();
     private readonly ShareService _svc;
 
     public ShareServiceTests()
@@ -22,7 +23,7 @@ public class ShareServiceTests
             S3 = { PartSizeBytes = Part },
             Limits = { AllowedExpiryDays = [1, 7, 30], BlockedExtensions = ["exe"], MaxFiles = 3, MaxFileBytes = 1L << 30, MaxTotalBytes = 2L << 30 },
         };
-        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock);
+        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), _edge, ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareService>.Instance);
     }
 
     private static CreateShareRequest Req(string? password = null, int? limit = null, int days = 7, params (string, long)[] files) =>
@@ -300,5 +301,31 @@ public class ShareServiceTests
         var created = await _svc.CreateAsync(Req(), default);
         var ex = await Assert.ThrowsAsync<ServiceException>(() => _svc.GetUploadStatusAsync(created.Token, "nope", default));
         Assert.Equal(403, ex.Status);
+    }
+
+    [Fact]
+    public async Task Delete_invalidates_the_edge_cache_once_per_share_folder()
+    {
+        var (created, share) = await Publish(Req(days: 30, files: [("a.zip", 10), ("b.zip", 20)]));
+        await _svc.DeleteAsync(created.Token, created.OwnerKey, default);
+        Assert.Equal([$"/d30/{created.Token}/*"], _edge.Paths);
+    }
+
+    [Fact]
+    public async Task Delete_does_not_touch_the_edge_when_nothing_finished_uploading()
+    {
+        var created = await _svc.CreateAsync(Req(), default);
+        await _svc.DeleteAsync(created.Token, created.OwnerKey, default);
+        Assert.Empty(_edge.Paths);
+    }
+
+    [Fact]
+    public async Task A_failed_invalidation_does_not_undo_or_fail_the_delete()
+    {
+        var (created, _) = await Publish(Req(files: ("a.zip", 10)));
+        _edge.Throw = new InvalidOperationException("cloudfront is down");
+        await _svc.DeleteAsync(created.Token, created.OwnerKey, default);
+        Assert.Empty(_storage.Objects);
+        Assert.False(_store.Shares.ContainsKey(created.Token));
     }
 }
