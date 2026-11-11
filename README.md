@@ -6,7 +6,9 @@ $ nitrodrp send --private
 
 A private, self-hosted file transfer app: upload big files, get an unguessable link, set an expiry, an optional password and a download limit. Built to replace a WeTransfer subscription, and as a portfolio project.
 
-**Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · DynamoDB · Terraform · Docker Compose · Cloudflare Tunnel.
+**Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · CloudFront · DynamoDB · Terraform · Docker Compose · Cloudflare Tunnel.
+
+**Try it:** [portfolio demo](#portfolio-demo-and-embedding) (runs entirely in your browser).
 
 ## How it works
 
@@ -47,6 +49,38 @@ npm run dev      # terminal 2: UI on http://localhost:5173
 
 Demo links: `/d/demo1234abcd` (3 files), `/d/locked123456` (password `nitro`), `/d/expired00000` (expired). The mock discards uploaded bytes and serves small zero-filled files, so it's for looking at the UI, not for testing transfers.
 
+## Portfolio demo and embedding
+
+The real app is private (it needs your server and AWS), so for a portfolio the project ships a **demo mode**: the same UI with the whole backend running in the visitor's browser. Nothing is uploaded (files are never even read), "downloads" are small placeholder files, and links only work in that browser. A banner says so. All the rules still apply (expiry, passwords, limits, resume, a real .zip), so it behaves like the product.
+
+```bash
+cd web
+npm run dev:demo      # try it locally
+npm run build:demo    # static site in web/dist
+```
+
+### Deploy the demo on Vercel
+
+It's a static Vite site, so it deploys on Vercel's free tier with no server. In Vercel, import the repo and set **Root Directory** to `web`; the rest comes from `web/vercel.json` (demo build, SPA fallback so `/d/<token>` links load, immutable asset caching). Only the demo goes on Vercel. The real API is an ASP.NET Core service with multi-GB streaming, which belongs on your server behind the Cloudflare Tunnel.
+
+### Embed it in your portfolio
+
+```html
+<iframe id="nitrodrp" src="https://YOUR-DEMO.vercel.app/?embed=1" title="NitroDrp demo"
+        style="width:100%;border:0;height:700px"></iframe>
+<script>
+  // Optional: the app reports its content height so the frame never shows an inner scrollbar.
+  addEventListener('message', (e) => {
+    if (e.origin !== 'https://YOUR-DEMO.vercel.app') return
+    if (e.data?.type === 'nitrodrp:height') document.getElementById('nitrodrp').style.height = e.data.height + 'px'
+  })
+</script>
+```
+
+`?embed=1` hides the site header and tightens spacing; only the height is posted to the parent. The demo's `vercel.json` allows framing from any site; tighten `frame-ancestors` there to your own domain if you want.
+
+The real app can be embedded too, but **only by origins you allow**: set `FRAME_ANCESTORS="'self' https://portfolio.example.com"` in `.env` (default is none). That's a CSP header from nginx, and it replaces `X-Frame-Options`. You'd normally embed the demo, not your private instance.
+
 ## Run it locally (no AWS account)
 
 MinIO stands in for S3 and DynamoDB Local for DynamoDB:
@@ -81,7 +115,7 @@ Make sure `allowed_origins` in Terraform matches your public hostname, otherwise
 
 ```bash
 dotnet test api/NitroDrp.sln      # share rules, HTTP pipeline, zip streaming, passwords, expiry, concurrency, resume, CloudFront signatures
-cd web && npm test                # chunk uploader (retry, progress, skip-uploaded), file matching, formatting
+cd web && npm test                # chunk uploader, file matching, formatting, zip writer, demo backend
 ```
 
 ## API
