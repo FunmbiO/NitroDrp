@@ -28,6 +28,7 @@ Design decisions worth knowing:
 - **Download limits are race-free.** The count is a single conditional `UpdateItem` (`downloadCount < downloadLimit`), so concurrent downloads can't exceed the limit. Covered by a concurrency test.
 - **Downloads go through CloudFront, not S3.** S3 to CloudFront transfer is free and CloudFront's free tier covers 1 TB/month, so large galleries don't hit S3's $0.09/GB egress. The bucket stays private (origin access control); the API issues short-lived CloudFront signed URLs (RSA key you generate, public half in a Terraform key group). The download filename is part of the signed URL, so it can't be altered. If `CLOUDFRONT_DOMAIN` is unset (local MinIO), the API falls back to S3 presigned URLs behind the same `IDownloadLinkSigner` interface.
 - **"Download all" is a streamed .zip.** The browser navigates to a short-lived HMAC-signed URL (the password was checked, and the download counted, by the POST that issued it), and the API zips on the fly: store-only, ZIP64, flat memory however large the files are, verified with a 4.8 GB archive. Unlike single files, zip bytes do pass through your server, so they're read via CloudFront (free transfer) rather than S3 egress, and at most 2 zips run at once (`Limits:MaxConcurrentZips`). Per-file buttons still download directly from the CDN.
+- **Deleting a link is immediate at the edge too.** After removing the S3 objects the API sends one CloudFront invalidation for the share's folder (`/d7/<token>/*`). It's best effort: if it fails the delete still succeeds, and cached copies lapse within the short cache TTL anyway. The first 1,000 invalidation paths a month are free, so one per delete costs nothing at this scale.
 - **Two kinds of secret.** A shared *access key* gates creating links (this is a private instance). Each share gets its own 256-bit *owner key* (stored only as a SHA-256 hash) that authorises uploading, finalizing and deleting that share.
 - **Passwords** are PBKDF2-SHA256 (210k iterations, per-hash salt). Password-protected links don't reveal their file names until unlocked.
 - **Storage and metadata sit behind interfaces** (`IFileStorage`, `IShareStore`). All business rules live in `ShareService` and are tested against in-memory fakes, no AWS needed.
@@ -68,7 +69,7 @@ Without Docker, run the pieces yourself: start MinIO and DynamoDB Local, then `d
    ```
 2. `cd infra/terraform && cp terraform.tfvars.example terraform.tfvars`, edit it (paste `cf-public.pem` into `cloudfront_public_key_pem`), then `terraform init && terraform apply`. This creates the private bucket (CORS, lifecycle rules), the DynamoDB table (TTL), the CloudFront distribution, a least-privilege IAM user and a monthly budget alert. CloudFront takes a few minutes to deploy.
 3. In the IAM console, create an access key for `nitrodrp-api`.
-4. `cp .env.example .env` and fill it in. `API_KEY` should be a long random string; `CLOUDFRONT_DOMAIN` and `CLOUDFRONT_KEY_PAIR_ID` come from `terraform output`.
+4. `cp .env.example .env` and fill it in. `API_KEY` should be a long random string; `CLOUDFRONT_DOMAIN`, `CLOUDFRONT_KEY_PAIR_ID` and `CLOUDFRONT_DISTRIBUTION_ID` come from `terraform output`.
 5. In Cloudflare Zero Trust, create a tunnel with a public hostname pointing at `http://web:80`, and put its token in `.env` as `TUNNEL_TOKEN`.
 6. `docker compose --profile tunnel up -d --build`
 
@@ -105,6 +106,5 @@ Working: everything above. The C# and TypeScript are built and tested, and both 
 
 Not built yet:
 
-- **Instant revocation at the edge.** "Delete link now" removes the S3 object immediately, but CloudFront may serve a cached copy for up to 5 minutes (and only to someone holding an unexpired signed URL, which lasts 15 minutes). An invalidation call on delete would close that gap.
 - **Zip at scale.** Zips come out of the home server's uplink; for heavy use a Lambda that zips next to S3 would remove that bottleneck.
 - Password-gate and expired-link screens are functional but weren't in the original design canvas.
