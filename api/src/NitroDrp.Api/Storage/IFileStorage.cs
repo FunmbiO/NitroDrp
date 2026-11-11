@@ -18,6 +18,8 @@ public interface IFileStorage
     /// <summary>Size of the stored object, or null if it doesn't exist.</summary>
     Task<long?> GetObjectSizeAsync(string key, CancellationToken ct);
 
+    Task<Stream> OpenReadAsync(string key, CancellationToken ct);
+
     string PresignDownload(string key, string fileName, TimeSpan ttl);
     Task DeleteAsync(IEnumerable<string> keys, CancellationToken ct);
 }

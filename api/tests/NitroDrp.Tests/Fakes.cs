@@ -65,6 +65,12 @@ public sealed class FakeStorage : IFileStorage
 
     public Task AbortMultipartAsync(string key, string uploadId, CancellationToken ct) { OpenUploads.Remove(key); return Task.CompletedTask; }
     public Task<long?> GetObjectSizeAsync(string key, CancellationToken ct) => Task.FromResult(Objects.TryGetValue(key, out var s) ? (long?)s : null);
+    /// <summary>Content a test wants an object to have; falls back to zero bytes of the stored size.</summary>
+    public Dictionary<string, byte[]> Content { get; } = [];
+
+    public Task<Stream> OpenReadAsync(string key, CancellationToken ct) =>
+        Task.FromResult<Stream>(new MemoryStream(Content.TryGetValue(key, out var c) ? c : new byte[Math.Max(0, Objects.GetValueOrDefault(key))]));
+
     public string PresignDownload(string key, string fileName, TimeSpan ttl) => $"https://fake/{key}?dl={Uri.EscapeDataString(fileName)}";
     public Task DeleteAsync(IEnumerable<string> keys, CancellationToken ct) { foreach (var k in keys) Objects.Remove(k); return Task.CompletedTask; }
 }

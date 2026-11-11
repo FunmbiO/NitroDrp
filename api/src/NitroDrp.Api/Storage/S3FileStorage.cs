@@ -107,6 +107,9 @@ public sealed class S3FileStorage : IFileStorage
         }
     }
 
+    public async Task<Stream> OpenReadAsync(string key, CancellationToken ct) =>
+        (await _s3.GetObjectAsync(_o.Bucket, key, ct)).ResponseStream;
+
     public string PresignDownload(string key, string fileName, TimeSpan ttl) =>
         _signer.GetPreSignedURL(new GetPreSignedUrlRequest
         {
