@@ -1,5 +1,5 @@
 # Public HTTPS for a server with its own IP (no Cloudflare Tunnel). Caddy gets and renews a Let's Encrypt
-# certificate by itself, as long as SITE_ADDRESS (e.g. send.jadedmedia.ca) already points at this server
+# certificate by itself, as long as SITE_ADDRESS (e.g. drop.jadedmedia.ca) already points at this server
 # and ports 80 and 443 are reachable.
 {$SITE_ADDRESS} {
 	reverse_proxy web:80 {
