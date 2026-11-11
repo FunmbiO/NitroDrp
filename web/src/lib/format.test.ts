@@ -14,6 +14,7 @@ describe('formatExpiry', () => {
   const now = new Date('2026-11-11T12:00:00Z')
   it('uses days for long windows and hours for short ones', () => {
     expect(formatExpiry('2026-11-18T12:00:00Z', now)).toBe('in 7 days')
+    expect(formatExpiry('2026-11-18T11:59:00Z', now)).toBe('in 7 days') // a moment after creating a 7-day link
     expect(formatExpiry('2026-11-12T00:00:00Z', now)).toBe('in 12 hours')
     expect(formatExpiry('2026-11-11T11:00:00Z', now)).toBe('expired')
   })

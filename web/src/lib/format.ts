@@ -17,5 +17,5 @@ export function formatExpiry(expiresAt: string | Date, now = new Date()): string
   const hours = Math.floor(ms / 3_600_000)
   if (hours < 1) return 'in under an hour'
   if (hours < 48) return `in ${hours} hour${hours === 1 ? '' : 's'}`
-  return `in ${Math.floor(hours / 24)} days`
+  return `in ${Math.ceil(ms / 86_400_000)} days` // round up: a link made a moment ago with a 7-day expiry is "7 days", not 6
 }
