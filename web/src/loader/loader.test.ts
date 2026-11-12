@@ -125,6 +125,22 @@ describe('the timeline', () => {
     }
   })
 
+  it('keeps the whole car in the picture even while it is turned over', () => {
+    for (let t = 0; t < LOOP; t += 1 / FPS) {
+      const p = pose(t)
+      const a = (p.angle * Math.PI) / 180
+      // the half-width and half-height of the car's outline once turned by `a`
+      const hx = Math.abs(Math.cos(a)) * (CAR_W / 2) + Math.abs(Math.sin(a)) * (CAR_H / 2)
+      const hy = Math.abs(Math.sin(a)) * (CAR_W / 2) + Math.abs(Math.cos(a)) * (CAR_H / 2)
+      const cx = p.x + CAR_W / 2
+      const cy = p.y + 8.5
+      expect(cx - hx).toBeGreaterThanOrEqual(0)
+      expect(cx + hx).toBeLessThanOrEqual(W)
+      expect(cy - hy).toBeGreaterThanOrEqual(0)
+      expect(cy + hy).toBeLessThanOrEqual(ROAD_Y + 6) // a tilted wheel may dip a pixel or two into the road surface
+    }
+  })
+
   it('squashes briefly on landing and drifts afterwards', () => {
     expect(pose(T_LAND + 0.02).squash).toBe(true)
     expect(pose(T_LAND + 0.3).squash).toBe(false)

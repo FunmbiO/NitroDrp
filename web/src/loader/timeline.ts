@@ -71,7 +71,7 @@ export const T_LAUNCH = timeAtScroll(scroll(T_RAMP_START) + RAMP_W)
 export const T_LAND = T_LAUNCH + AIR_SECONDS
 export const T_APEX = T_LAUNCH + AIR_SECONDS / 2
 export const T_FLIP_DONE = T_LAUNCH + AIR_SECONDS * 0.92
-export const ARC = 36 // how high it jumps
+export const ARC = 27 // how high it jumps: low enough that the car, turned on its side at the top, still fits in the picture
 
 export const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
 const easeInOut = (x: number) => 0.5 - 0.5 * Math.cos(Math.PI * clamp01(x))
