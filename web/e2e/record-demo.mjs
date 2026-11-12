@@ -48,9 +48,14 @@ await page.click('button[type=submit]')
 await page.waitForURL('**/created/**', { timeout: 30_000 })
 await page.waitForSelector('.results li')
 // The page was served from localhost: show the real address instead, as in the README screenshots.
+// (React resets the box when the page updates, so keep re-applying it.)
 await page.evaluate((origin) => {
-  const input = document.getElementById('link')
-  input.value = input.value.replace(location.origin, origin)
+  const swap = () => {
+    const input = document.getElementById('link')
+    if (input) input.value = input.value.replace(location.origin, origin)
+  }
+  swap()
+  setInterval(swap, 50)
 }, PUBLIC_ORIGIN)
 await pause(3600)
 const link = await page.inputValue('#link')
