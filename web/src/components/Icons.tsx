@@ -1,9 +1,17 @@
+import { LOGO_SIZE, logoRects } from '../lib/logo'
+
 const base = { 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-export const LogoMark = ({ size = 32 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="3" fill="#FF5A1F" />
-    <path d="M16 23V10M10.5 15.5 16 10l5.5 5.5" fill="none" stroke="#0A0A0A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+/**
+ * The NitroDrp logo, a NOS bottle carrying an upload arrow, drawn from the same grid as the favicon and the phone
+ * icons (src/assets/logo.json). `size` should be a multiple of 24 (24, 48) so every art pixel is a whole number of
+ * screen pixels on common displays and the edges stay crisp.
+ */
+export const LogoMark = ({ size = 48 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox={`0 0 ${LOGO_SIZE} ${LOGO_SIZE}`} shapeRendering="crispEdges" aria-hidden="true">
+    {logoRects().map((r) => (
+      <rect key={`${r.x}-${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.fill} />
+    ))}
   </svg>
 )
 export const UploadIcon = ({ size = 40 }: { size?: number }) => (
