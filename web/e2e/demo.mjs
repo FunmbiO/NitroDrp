@@ -342,6 +342,100 @@ try {
   ok(Date.now() - qStart < 2500, 'automated browsers are not held up by the splash')
   await quick.close()
 
+  // "email sent": an F1 car on NOS speeds away, then the page continues (automated browsers skip it unless ?celebrate=1)
+  const celeb = async (options, work) => {
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 760 }, ...options })
+    const pg = await ctx.newPage()
+    const errs = []
+    pg.on('pageerror', (e) => errs.push(e.message))
+    try { return await work(pg, ctx, errs) } finally { await ctx.close() }
+  }
+  const snapCanvas = (pg) => pg.evaluate(() => {
+    const c = document.querySelector('.email-sent canvas')
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+    const colours = new Set()
+    let hash = 0
+    for (let i = 0; i < d.length; i += 4) {
+      colours.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+      hash = (hash * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) | 0
+    }
+    return { colours: colours.size, hash }
+  })
+  const sendWithEmail = async (pg) => {
+    await pg.goto(`${BASE}/?celebrate=1`)
+    await pg.setInputFiles('input[type=file]', [{ name: 'pic.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') }])
+    await pg.check('text=Also send the link by email')
+    await pg.fill('#up-to', 'friend@example.com')
+    await pg.click('button[type=submit]')
+  }
+
+  await celeb({}, async (pg, _ctx, errs) => {
+    await sendWithEmail(pg)
+    await pg.waitForSelector('.email-sent canvas', { state: 'visible', timeout: 20_000 })
+    const shown = Date.now()
+    ok(!/created/.test(pg.url()), 'the animation plays before the link page (we are still on the upload page)')
+    await pg.waitForTimeout(700)
+    const a = await snapCanvas(pg)
+    await pg.waitForTimeout(450)
+    const b = await snapCanvas(pg)
+    ok(a.colours > 25 && a.hash !== b.hash, `it is a drawn, moving scene (${a.colours} colours)`)
+    ok((await pg.textContent('.email-sent .visually-hidden')) === 'Email sent', 'and says "Email sent" to screen readers')
+    await pg.waitForURL('**/created/**', { timeout: 10_000 })
+    const took = (Date.now() - shown) / 1000
+    ok(took >= 2.8 && took <= 6, `it ran for ${took.toFixed(1)} s, then the link page appeared`)
+    await pg.waitForSelector('.results li')
+    ok((await pg.locator('.email-sent').count()) === 0 && errs.length === 0, 'with the animation gone and no errors')
+  })
+
+  await celeb({}, async (pg) => {
+    await sendWithEmail(pg)
+    await pg.waitForSelector('.email-sent canvas', { state: 'visible', timeout: 20_000 })
+    const shown = Date.now()
+    await pg.waitForTimeout(600)
+    await pg.keyboard.press('Space')
+    await pg.waitForURL('**/created/**', { timeout: 5_000 })
+    ok((Date.now() - shown) / 1000 < 2.5, 'pressing a key skips it')
+  })
+
+  await celeb({}, async (pg) => {
+    await sendWithEmail(pg)
+    await pg.waitForSelector('.email-sent canvas', { state: 'visible', timeout: 20_000 })
+    await pg.waitForTimeout(500)
+    await pg.click('.email-sent')
+    await pg.waitForURL('**/created/**', { timeout: 5_000 })
+    ok(true, 'and so does clicking or tapping it')
+  })
+
+  await celeb({ reducedMotion: 'reduce' }, async (pg) => {
+    await sendWithEmail(pg)
+    await pg.waitForSelector('.email-sent canvas', { state: 'visible', timeout: 20_000 })
+    await pg.waitForTimeout(300)
+    const a = await snapCanvas(pg)
+    await pg.waitForTimeout(500)
+    const b = await snapCanvas(pg)
+    ok(a.colours > 25 && a.hash === b.hash, 'with "reduce motion" on, it is a still picture')
+    await pg.waitForURL('**/created/**', { timeout: 6_000 })
+    ok(true, 'that carries on by itself after a moment')
+  })
+
+  await celeb({}, async (pg) => {
+    // sending later, from the link page, plays it too
+    await pg.goto(`${BASE}/`)
+    await pg.setInputFiles('input[type=file]', [{ name: 'later.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') }])
+    await pg.click('button[type=submit]')
+    await pg.waitForURL('**/created/**', { timeout: 20_000 })
+    const created = pg.url()
+    await pg.goto(`${created}?celebrate=1`)
+    await pg.click('button:has-text("Email this link")')
+    await pg.fill('#cr-to', 'later@example.com')
+    await pg.click('button:has-text("Send to 1 person")')
+    await pg.waitForSelector('.email-sent canvas', { state: 'visible', timeout: 10_000 })
+    ok(true, 'sending from the link page plays it as well')
+    await pg.keyboard.press('Space')
+    await pg.waitForSelector('.results li')
+    ok((await pg.locator('.email-sent').count()) === 0, 'and the results are there when it ends')
+  })
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')
