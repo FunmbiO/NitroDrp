@@ -120,6 +120,8 @@ builder.Services.AddRateLimiter(o =>
 
 var app = builder.Build();
 
+// The framework's own middleware logs every handled error as an error, which would bury real problems under
+// people's typos. Silenced in appsettings.json: this handler logs the genuinely unexpected ones itself.
 app.UseExceptionHandler(errors => errors.Run(async ctx =>
 {
     var ex = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
