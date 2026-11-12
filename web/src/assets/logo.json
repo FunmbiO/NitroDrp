@@ -1,0 +1,41 @@
+{
+  "_comment": "The NitroDrp logo: a NOS bottle carrying an upload arrow, on an orange plate. 24 x 24, one letter per pixel, \".\" is transparent. P is the plate; o is the arrow (the same orange, kept separate so the bottle can be used without the plate). v is the little sparkle on the plate, also kept apart so it stays out of the bottle-only version. Everything else is generated from this file: the favicon, the phone icons (dev/make-icons.py) and the header logo (web/src/lib/logo.ts).",
+  "palette": {
+    "P": "#ff5a1f",
+    "o": "#ff5a1f",
+    "k": "#14101a",
+    "w": "#f5f5f5",
+    "s": "#d4d8e2",
+    "S": "#8b93a6",
+    "n": "#1f5cff",
+    "N": "#7aa2ff",
+    "m": "#0b2a9e",
+    "v": "#f5f5f5"
+  },
+  "rows": [
+    "..PPPPPPPPPPPPPPPPPPPP..",
+    ".PPPPPPPPPkkkkPPPPPPPPP.",
+    "PPPPPPPPPkwwwwkPPPPPPPPP",
+    "PPPPPPPPksssssskPPPPPPPP",
+    "PPPPPPPPksssssskPPPPPPPP",
+    "PPPPvPPPkkkSSkkkPPPPPPPP",
+    "PPPvPvPknnnnnnnnkPPPPPPP",
+    "PPPPvPknnnnnnnnnnkPPPPPP",
+    "PPPPPknnnnnnnnnnnnkPPPPP",
+    "PPPPPknNnnnnnnnnnnkPPPPP",
+    "PPPPPknNssssssssnnkPPPPP",
+    "PPPPPknNwwwoowwwmmkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknNwoooooowmmkPPPPP",
+    "PPPPPknNoooooooommkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknNwwoooowwmmkPPPPP",
+    "PPPPPknnnnnnnnnnmmkPPPPP",
+    "PPPPPknnnnnnnnnnnkPPPPPP",
+    ".PPPPPknmmmmmmmmkPPPPPP.",
+    "..PPPPPkkkkkkkkkPPPPPP.."
+  ]
+}
