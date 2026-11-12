@@ -136,6 +136,8 @@ mark { background: var(--lime); color: var(--bg); padding: 0 6px; }
 .hint { margin: 0; color: var(--muted); font: 13px var(--mono); }
 
 .demo-banner { padding: 8px 20px; text-align: center; background: var(--lime); color: var(--bg); font: 13px var(--mono); }
+/* Pinned under the phone's status bar so it can't be missed */
+.offline-banner { position: sticky; top: 0; z-index: 10; padding: 8px 20px; text-align: center; background: var(--pink); color: var(--bg); font: 700 13px var(--mono); }
 .demo-banner strong { font-weight: 700; }
 
 /* Embedded in another site (?embed=1): the host provides the chrome, so drop ours and tighten up. */
