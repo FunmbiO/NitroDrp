@@ -133,3 +133,13 @@ mark { background: var(--lime); color: var(--bg); padding: 0 6px; }
 html[data-embed] body { min-height: 0; }
 html[data-embed] .page { padding-top: 16px; padding-bottom: 24px; }
 html[data-embed] h1 { font-size: 32px; }
+
+/* footer */
+.site-footer { max-width: 1120px; margin: 0 auto; padding: 24px 40px 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px; border-top: 1px solid var(--line); color: var(--muted); font: 13px var(--mono); }
+.site-footer p { margin: 0; text-align: center; }
+.site-footer a { color: var(--ink); text-underline-offset: 3px; }
+.site-footer a:hover { color: var(--lime); }
+.footer-logo { display: inline-flex; opacity: 0.9; }
+.footer-logo:hover { opacity: 1; }
+.footer-logo img { display: block; width: 56px; height: auto; }
+@media (max-width: 600px) { .site-footer { padding-inline: 20px; flex-direction: column; gap: 10px; } }

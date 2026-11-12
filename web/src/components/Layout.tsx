@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { DEMO, EMBED } from '../lib/config'
 import { useEmbedAutoHeight } from '../lib/embed'
+import { Footer } from './Footer'
 import { LogoMark } from './Icons'
 
 export function Layout() {
@@ -28,6 +29,7 @@ export function Layout() {
         </header>
       )}
       <Outlet />
+      <Footer />
     </>
   )
 }
