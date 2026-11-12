@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { getRecent, removeRecent } from '../lib/storage'
 import { PixelLoader } from '../loader/PixelLoader'
+import { useMinimumLoading } from '../loader/useMinimumLoading'
 
 interface Row {
   token: string
@@ -20,6 +21,7 @@ export function RecentPage() {
   const [local, setLocal] = useState(getRecent)
   const [remote, setRemote] = useState<ShareSummary[] | null>(null)
   const [error, setError] = useState('')
+  const holdLoader = useMinimumLoading(signedIn && remote === null)
 
   useEffect(() => {
     if (!signedIn) return
@@ -64,7 +66,7 @@ export function RecentPage() {
           : 'Saved in this browser only. Clearing site data forgets them (the links keep working until they expire).'}
       </p>
       {error && <p className="error" role="alert">{error}</p>}
-      {signedIn && remote === null ? (
+      {(signedIn && remote === null) || holdLoader ? (
         <div className="card pad"><PixelLoader label="Loading your links" /></div>
       ) : rows.length === 0 ? (
         <div className="card pad"><span className="muted">Nothing here yet. <Link to="/">Send something.</Link></span></div>

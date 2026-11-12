@@ -5,6 +5,7 @@ import { formatBytes, formatExpiry } from '../lib/format'
 import { MAX_PASSWORD } from '../lib/validate'
 import { DownloadIcon } from '../components/Icons'
 import { PixelLoader } from '../loader/PixelLoader'
+import { useMinimumLoading } from '../loader/useMinimumLoading'
 
 type State =
   | { kind: 'loading' }
@@ -29,6 +30,7 @@ export function DownloadPage() {
   const [unlocked, setUnlocked] = useState<ShareView | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const holdLoader = useMinimumLoading(state.kind === 'loading') // once shown, the animation gets a moment even if the link is ready
 
   useEffect(() => {
     api.getShare(token).then(
@@ -37,7 +39,7 @@ export function DownloadPage() {
     )
   }, [token])
 
-  if (state.kind === 'loading') return <main className="page narrow"><PixelLoader /></main>
+  if (state.kind === 'loading' || holdLoader) return <main className="page narrow"><PixelLoader /></main>
   if (state.kind === 'gone') {
     return (
       <main className="page narrow">

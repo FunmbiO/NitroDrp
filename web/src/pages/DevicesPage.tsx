@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type PasskeySummary } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { PixelLoader } from '../loader/PixelLoader'
+import { useMinimumLoading } from '../loader/useMinimumLoading'
 import { createPasskey, passkeyErrorMessage, passkeysSupported } from '../lib/passkeys'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'never')
@@ -12,6 +13,7 @@ export function DevicesPage() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const holdLoader = useMinimumLoading(keys === null)
 
   const load = useCallback(async () => {
     try {
@@ -58,7 +60,7 @@ export function DevicesPage() {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="card">
-        {keys === null ? (
+        {keys === null || holdLoader ? (
           <div className="pad"><PixelLoader label="Loading your devices" /></div>
         ) : (
           keys.map((k) => (

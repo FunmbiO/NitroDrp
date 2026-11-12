@@ -8,6 +8,7 @@ import { formatBytes, formatExpiry } from '../lib/format'
 import { findRecent, removeRecent, type RecentShare } from '../lib/storage'
 import { CheckIcon } from '../components/Icons'
 import { PixelLoader } from '../loader/PixelLoader'
+import { useMinimumLoading } from '../loader/useMinimumLoading'
 
 export function CreatedPage() {
   const { token = '' } = useParams()
@@ -44,7 +45,9 @@ export function CreatedPage() {
     api.getConfig().then(setConfig, () => setConfig(null))
   }, [])
 
-  if (!share && !local && signedIn && !looked) return <main className="page narrow"><PixelLoader /></main>
+  const fetching = !share && !local && signedIn && !looked
+  const holdLoader = useMinimumLoading(fetching)
+  if (fetching || holdLoader) return <main className="page narrow"><PixelLoader /></main>
 
   if (!share) {
     return (
