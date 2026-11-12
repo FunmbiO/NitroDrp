@@ -189,3 +189,10 @@ textarea.input { resize: vertical; min-height: 44px; font: inherit; }
 @keyframes loader-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes boot-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
 @media (prefers-reduced-motion: reduce) { .pixel-loader { animation: none; } .dots::after { animation: none; content: '...'; } }
+
+/* The racer, in the space at the top right of the upload page */
+.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+.hero-scene { display: none; flex: none; line-height: 0; border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--pink); background: var(--bg); }
+.hero-scene canvas { display: block; image-rendering: pixelated; }
+@media (min-width: 900px) { .hero-scene { display: block; } }
+html[data-embed] .hero-scene { display: none; }
