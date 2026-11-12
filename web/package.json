@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "dev:demo": "vite --mode demo",
     "build:demo": "tsc -b && vite build --mode demo",
-    "mock": "node mock/server.mjs"
+    "mock": "node mock/server.mjs",
+    "e2e:demo": "node e2e/demo.mjs",
+    "screenshots": "node e2e/screenshots.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -22,6 +24,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "playwright": "1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

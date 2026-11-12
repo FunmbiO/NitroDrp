@@ -8,7 +8,13 @@ A private, self-hosted file transfer app: upload big files, get an unguessable l
 
 **Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · CloudFront · DynamoDB · Terraform · Docker Compose · Cloudflare Tunnel.
 
-**Try it:** [portfolio demo](#portfolio-demo-and-embedding) (runs entirely in your browser).
+**Live demo: [demo.jadedmedia.ca](https://demo.jadedmedia.ca)**. The whole app, with the backend running in your browser: nothing is uploaded. More in [Portfolio demo and embedding](#portfolio-demo-and-embedding).
+
+| Send | Link ready |
+|---|---|
+| ![Upload screen: drop files, choose expiry, password and download limit](docs/screenshots/1-upload.png) | ![Link created, with a summary of its settings](docs/screenshots/2-link-created.png) |
+| **Receive** | **On a phone** |
+| ![Recipient page with download-all and per-file buttons](docs/screenshots/3-download.png) | ![The recipient page on a phone](docs/screenshots/4-mobile.png) |
 
 ## How it works
 
