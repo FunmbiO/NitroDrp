@@ -42,6 +42,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 
 | | |
 |---|---|
+| [Handbook](docs/HANDBOOK.md) ([PDF](docs/NitroDrp-Handbook.pdf)) | The plain-English guide: what runs where, everyday commands, fixing things |
 | [Architecture](docs/ARCHITECTURE.md) | Diagram, design decisions, security model and the API |
 | [Development](docs/DEVELOPMENT.md) | Repo map, running it locally, every test suite, pinned dependencies |
 | [Deploying](docs/DEPLOY.md) | AWS and Terraform, `.env`, the three ways to expose it, CloudFront |

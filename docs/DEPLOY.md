@@ -122,7 +122,6 @@ control, cache policy), which is expected.
 - **Terraform and IAM key tags:** creating an access key in the AWS console tags the IAM user with the key's
   description (the tag name is the key id, `AKIA...`). The provider ignores tags with that prefix
   (`infra/terraform/versions.tf`), so `terraform plan` stays clean after you rotate keys.
-
 - **Updating:** `git pull` and run the same `docker compose --profile <public|tunnel> up -d --build` you started
   with. Containers restart on their own after a reboot.
 - **Ports:** the web container (and the dev S3 edge) publish only on `127.0.0.1`. The tunnel or Caddy reaches
