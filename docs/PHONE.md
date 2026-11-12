@@ -50,4 +50,3 @@ uploads go to storage sites, not through the copy.
 - `/sw.js` and the manifest are served with `Cache-Control: no-cache` (`web/nginx.conf`, `web/vercel.json`) so
   updates always reach phones.
 - `npm run e2e:demo` checks the manifest, the icons, offline opening, and that nothing under `/api` is saved.
-- Not included: sharing files *into* the app from the phone's share sheet (Android only; possible later).
