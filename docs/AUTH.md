@@ -30,8 +30,10 @@ It's the owner's master secret and recovery key:
 - Scripts such as `dev/smoke.py` can still create links with it.
 - **Changing `API_KEY` signs every device out** (the sign-in cookie is signed with a key derived from it). Do that
   if you think a device was stolen. Devices then sign in again with their passkeys.
-- A browser that can't use passkeys has "Use the access key without a passkey" on the sign-in screen: the page then
-  works the old way and asks for the key on the upload page.
+- A browser that can't use passkeys (or anyone who prefers it) has "Use the access key without a passkey" on the
+  sign-in screen. It asks for the key and **checks it with the server first**: nothing opens until the server says
+  it's right, and it isn't remembered, so a reload asks again. Then the upload page works the old way and sends the
+  key with each link.
 
 ## Turn it on
 

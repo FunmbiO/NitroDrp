@@ -22,6 +22,19 @@ before anything is sent.
 | **Request bodies** | At most 1 MB, strict JSON (a number must be a number, not `"7"`), nesting limited. Malformed input is a clean `400`, or `413` when too large, never a `500`. | server |
 | **Headers** | Keys are hashed before comparing, so length can't be abused; the framework's header size limit applies. | server |
 
+## What the page shows is a courtesy; the server is the gate
+
+Hiding or showing screens in the browser protects nothing on its own, because anyone can change what their own browser
+does. So every request is judged by the server, whatever the page showed:
+
+- Creating links, listing them, adding or removing devices, and every action on a link need a valid sign-in, the access
+  key, or that link's own owner key. Recipients' download links are the only open door, by design.
+- `AnonymousAccessTests` takes **every route the API has** and tries it as nobody, with a wrong access key, a wrong
+  owner key, and a forged sign-in cookie. Only the short public list may answer with success (health, the page's
+  public settings, "am I signed in", starting a sign-in and signing out). A route added without a check fails the test.
+- The sign-in screen's "use the access key" option asks the server to check the key before the app opens, and a
+  browser-side flag can't open it. The browser test sets such flags by hand to prove it.
+
 ## Injection and abuse, one by one
 
 | Attack | Why it doesn't work here |
