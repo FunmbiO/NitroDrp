@@ -85,8 +85,8 @@ recipient is a verified address.
 
 - `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build` runs email against moto's SES
   emulator, with the sending domain auto-created. `python3 dev/smoke.py` then emails a link and checks the
-  results and limits. To also confirm what the emulator recorded, set
-  `MOTO_DATA_URL=http://localhost:5000/moto-api/data.json` (publish moto's port first).
+  results and limits. To also confirm the emulator really received two messages, set `MOTO_URL=http://localhost:5000`
+  (publish moto's port first).
 - The browser demo at demo.jadedmedia.ca **simulates** it with the same rules and error codes, and says so on the
   page. No email is ever sent from the demo.
 

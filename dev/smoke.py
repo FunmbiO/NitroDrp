@@ -6,6 +6,7 @@ crash and resume, finalize, per-file download, streamed zip, byte-for-byte compa
 
     python3 dev/smoke.py                          # http://localhost:8080
     python3 dev/smoke.py http://127.0.0.1:8080    # API directly
+    MOTO_URL=http://localhost:5000 python3 dev/smoke.py   # also confirm the SES emulator received the emails
 """
 import hashlib, io, json, os, sys, urllib.error, urllib.request as u, zipfile
 
@@ -93,18 +94,28 @@ check(view["downloadsRemaining"] == 3, "download counter: 1 file + 1 zip = 2 use
 # Email the link (needs email enabled; the dev stack uses moto's SES, which records what it "sent").
 status, cfg = call("GET", "/config")
 check(status == 200 and "emailEnabled" in cfg, "config endpoint answers")
+def sent_count():
+    """Messages the SES emulator says it sent. Set MOTO_URL (e.g. http://localhost:5000) to check it; moto only."""
+    base = os.environ.get("MOTO_URL")
+    if not base:
+        return None
+    req = u.Request(base.rstrip("/") + "/", method="POST", data=b"Action=GetSendQuota&Version=2010-12-01",
+                    headers={"Authorization": "AWS4-HMAC-SHA256 Credential=test/20260101/us-east-2/ses/aws4_request, SignedHeaders=host, Signature=x"})
+    with u.urlopen(req) as r:
+        return float(r.read().decode().split("<SentLast24Hours>")[1].split("<")[0])
+
+
 if cfg["emailEnabled"]:
+    before = sent_count()
     body = {"recipients": ["friend@example.com", "Friend@Example.com", "other@example.com"], "message": "smoke test", "senderName": "Smoke", "senderEmail": "me@example.com"}
     check(call("POST", f"/shares/{token}/email", body)[0] == 403, "emailing without the owner key is refused")
     status, res = call("POST", f"/shares/{token}/email", body, owner)
     check(status == 200 and [r["sent"] for r in res["results"]] == [True, True], "emailed 2 recipients (duplicate dropped)")
     check(res["remaining"] == int(cfg["maxRecipientsPerShare"]) - 2, "lifetime allowance went down by 2")
     check(call("POST", f"/shares/{token}/email", {"recipients": ["not-an-address"]}, owner)[0] == 400, "a bad address is a 400")
-    moto = os.environ.get("MOTO_DATA_URL")  # optional: e.g. http://localhost:5000/moto-api/data.json, if you expose moto
-    if moto:
-        sent = json.loads(get(moto)).get("ses", {}).get("Message", [])
-        mails = [m for m in sent if token in json.dumps(m)]
-        check(len(mails) == 2 and all("smoke test" in json.dumps(m) for m in mails), "the emulator recorded both messages with the link")
+    after = sent_count()
+    if after is not None:
+        check(after - before == 2, f"the emulator counted exactly 2 messages sent ({before:g} -> {after:g})")
 else:
     print("SKIP email (not enabled on this server)")
 
