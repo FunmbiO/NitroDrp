@@ -4,6 +4,8 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using NitroDrp.Api;
+using Fido2NetLib;
+using NitroDrp.Api.Auth;
 using NitroDrp.Api.Email;
 using NitroDrp.Api.Endpoints;
 using NitroDrp.Api.Services;
@@ -62,6 +64,24 @@ builder.Services.AddSingleton(ZipLinks.FromApiKey(opts.ApiKey, TimeProvider.Syst
 builder.Services.AddSingleton(new ZipGate(Math.Max(1, opts.Limits.MaxConcurrentZips)));
 builder.Services.AddSingleton<ShareService>();
 
+// Signing in. The session machinery is always there (it just never finds a cookie when passkeys are off);
+// the passkey service itself exists only when switched on.
+var secureCookies = true;
+builder.Services.AddSingleton<IPasskeyStore>(sp => new DynamoPasskeyStore(sp.GetRequiredService<IAmazonDynamoDB>(), opts.Dynamo));
+builder.Services.AddSingleton(sp => new SessionTokens(opts.ApiKey, sp.GetRequiredService<TimeProvider>(), TimeSpan.FromDays(Math.Max(1, opts.Auth.SessionDays))));
+if (opts.Auth.Passkeys)
+{
+    if (!Uri.TryCreate(opts.PublicBaseUrl, UriKind.Absolute, out var site) || (site.Scheme != "https" && !site.IsLoopback))
+        throw new InvalidOperationException("NitroDrp:PublicBaseUrl must be the site's https address (e.g. https://drop.example.com) when passkeys are on: a passkey is tied to it.");
+    secureCookies = site.Scheme == "https";
+    var origins = new HashSet<string> { site.GetLeftPart(UriPartial.Authority) };
+    foreach (var extra in opts.Auth.ExtraOrigins) origins.Add(extra.TrimEnd('/'));
+    builder.Services.AddSingleton<IFido2>(new Fido2(new Fido2Configuration { ServerDomain = site.Host, ServerName = opts.Auth.RpName, Origins = origins }));
+    builder.Services.AddSingleton(opts.Auth);
+    builder.Services.AddSingleton<PasskeyService>();
+}
+builder.Services.AddSingleton(sp => new Sessions(sp.GetRequiredService<SessionTokens>(), sp.GetRequiredService<IPasskeyStore>(), sp.GetRequiredService<TimeProvider>(), secureCookies));
+
 // The API only ever sits behind our nginx, which sets X-Client-IP from Cloudflare's CF-Connecting-IP
 // (or the socket address when not behind Cloudflare). Rate limits key on that, not on nginx's own IP.
 static string ClientIp(HttpContext c) =>
@@ -81,6 +101,7 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("create", c => PerIp(c, 20));
     o.AddPolicy("upload", c => PerIp(c, 1200));   // one presign + one complete per 16 MiB part
     o.AddPolicy("public", c => PerIp(c, 60));
+    o.AddPolicy("auth", c => PerIp(c, 10));     // passkey prompts: a few real attempts per minute is plenty
     o.AddPolicy("email", c => PerIp(c, 10));    // each request can reach up to 10 inboxes
     o.AddPolicy("password", c => PerIp(c, 10));   // PBKDF2 is deliberately slow; this also throttles guessing
 });
@@ -111,6 +132,7 @@ if (opts.S3.AutoCreateBucket)
 if (opts.Email.Enabled && opts.Email.AutoCreateIdentity)
     await app.Services.GetRequiredService<SesEmailSender>().EnsureIdentityAsync(opts.Email.FromAddress![(opts.Email.FromAddress!.IndexOf('@') + 1)..], CancellationToken.None);
 
+app.MapAuthEndpoints();
 app.MapShareEndpoints();
 app.Run();
 

@@ -14,11 +14,35 @@ public sealed class NitroDrpOptions
     /// </summary>
     public string? PublicBaseUrl { get; set; }
 
+    public AuthOptions Auth { get; set; } = new();
     public EmailOptions Email { get; set; } = new();
     public S3Options S3 { get; set; } = new();
     public CloudFrontOptions CloudFront { get; set; } = new();
     public DynamoOptions Dynamo { get; set; } = new();
     public LimitOptions Limits { get; set; } = new();
+}
+
+/// <summary>
+/// Optional: sign in with a passkey (Face ID, fingerprint, a phone PIN, a security key) instead of typing the access
+/// key on every device. Needs PublicBaseUrl, because a passkey is tied to the site's address.
+/// </summary>
+public sealed class AuthOptions
+{
+    public bool Passkeys { get; set; }
+
+    /// <summary>The name shown in the device's passkey prompt.</summary>
+    public string RpName { get; set; } = "NitroDrp";
+
+    /// <summary>How long a sign-in lasts without use. Each time you open the app it's extended.</summary>
+    public int SessionDays { get; set; } = 90;
+
+    public int MaxPasskeys { get; set; } = 20;
+
+    /// <summary>
+    /// Extra web origins allowed to use passkeys, besides PublicBaseUrl. For local development only, for example the
+    /// Vite dev server: http://localhost:5173.
+    /// </summary>
+    public string[] ExtraOrigins { get; set; } = [];
 }
 
 /// <summary>Optional: email the download link to people, in addition to copying it. Uses Amazon SES.</summary>

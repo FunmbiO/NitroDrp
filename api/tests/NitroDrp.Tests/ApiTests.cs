@@ -18,6 +18,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public FakeStorage Storage { get; } = new();
     public RecordingEdgeCache Edge { get; } = new();
     public FakeEmailSender Mail { get; } = new();
+    public InMemoryPasskeyStore Passkeys { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -25,6 +26,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("NitroDrp:S3:Bucket", "test-bucket");
         builder.UseSetting("NitroDrp:SenderName", "Jaded Media");
         builder.UseSetting("NitroDrp:PublicBaseUrl", "https://drop.example.com");
+        builder.UseSetting("NitroDrp:Auth:Passkeys", "true");
         builder.UseSetting("NitroDrp:Email:Enabled", "true");
         builder.UseSetting("NitroDrp:Email:FromAddress", "transfers@example.com");
         builder.ConfigureServices(services =>
@@ -34,6 +36,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IDownloadLinkSigner>();
             services.RemoveAll<IObjectReader>();
             services.RemoveAll<IEdgeCache>();
+            services.RemoveAll<NitroDrp.Api.Auth.IPasskeyStore>();
+            services.AddSingleton<NitroDrp.Api.Auth.IPasskeyStore>(Passkeys);
             services.RemoveAll<NitroDrp.Api.Email.IEmailSender>();
             services.AddSingleton<NitroDrp.Api.Email.IEmailSender>(Mail);
             services.AddSingleton<IEdgeCache>(Edge);
