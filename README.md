@@ -124,7 +124,7 @@ On any server, `./deploy/setup-env.sh` writes your `.env` by asking for each val
    openssl genrsa -out secrets/cloudfront-private.pem 2048
    openssl rsa -pubout -in secrets/cloudfront-private.pem -out cf-public.pem
    ```
-2. `cd infra/terraform && cp terraform.tfvars.example terraform.tfvars`, edit it (paste `cf-public.pem` into `cloudfront_public_key_pem`, or set `enable_cloudfront = false`, see below), then `terraform init && terraform apply`. This creates the private bucket (CORS, lifecycle rules), the DynamoDB table (TTL), the CloudFront distribution, a least-privilege IAM user and a monthly budget alert. CloudFront takes a few minutes to deploy.
+2. `cd infra/terraform && cp terraform.tfvars.example terraform.tfvars`, edit it (paste `cf-public.pem` into `cloudfront_public_key_pem`, or set `enable_cloudfront = false`, see below), then create the state bucket and apply (see below). This creates the private bucket (CORS, lifecycle rules), the DynamoDB table (TTL), the CloudFront distribution, a least-privilege IAM user and a monthly budget alert. CloudFront takes a few minutes to deploy.
 3. In the IAM console, create an access key for `nitrodrp-api`.
 4. `cp .env.example .env` and fill it in. `API_KEY` should be a long random string; `CLOUDFRONT_DOMAIN`, `CLOUDFRONT_KEY_PAIR_ID` and `CLOUDFRONT_DISTRIBUTION_ID` come from `terraform output`.
 5. In Cloudflare Zero Trust, create a tunnel with a public hostname pointing at `http://web:80`, and put its token in `.env` as `TUNNEL_TOKEN`.
@@ -138,6 +138,17 @@ Make sure `allowed_origins` in Terraform matches your public hostname, otherwise
 CloudFront is optional. AWS sometimes holds back new CloudFront distributions until an account is verified by Support (the error reads "Your account must be verified before you can add new CloudFront resources"). You don't have to wait: set `enable_cloudfront = false` in `terraform.tfvars` (the public key can then stay empty), apply, and leave `CLOUDFRONT_DOMAIN`, `CLOUDFRONT_KEY_PAIR_ID` and `CLOUDFRONT_DISTRIBUTION_ID` empty in `.env`. Everything works: downloads and zips come straight from S3 with presigned URLs. The only difference is cost, since S3 bills internet egress ($0.09/GB) after the first 100 GB a month, which is nothing at light use.
 
 When AWS verifies the account, set `enable_cloudfront = true`, add the public key, run `terraform apply`, then fill in the three CloudFront values and restart the API. If you applied an earlier version that already created some CloudFront pieces, `moved` blocks adopt them instead of recreating; with the switch off, Terraform will plan to remove those four free pieces (key, key group, access control, cache policy), which is expected.
+
+### Where Terraform keeps its state
+
+In a private S3 bucket, not on one computer, so losing your laptop doesn't lose your infrastructure. Create it once, then initialise Terraform against it:
+
+```bash
+./infra/bootstrap/state-bucket.sh
+cd infra/terraform && terraform init -backend-config=backend.hcl && terraform apply
+```
+
+Already applied with local state? Follow [docs/TERRAFORM_STATE.md](docs/TERRAFORM_STATE.md) to move it.
 
 Terraform has offline tests (`cd infra/terraform && terraform init -backend=false && terraform test`) that check both modes without an AWS account.
 
