@@ -319,6 +319,29 @@ try {
   ok(c1.colours > 25 && c1.hash === c2.hash, 'with "reduce motion" on, it shows a still picture instead of animating')
   await calm.ctx.close()
 
+  // the splash waits for the animation even when the app is ready sooner (automated browsers skip it unless asked)
+  const lingerCtx = await browser.newContext({ viewport: { width: 900, height: 700 } })
+  const lp = await lingerCtx.newPage()
+  const began = Date.now()
+  await lp.goto(`${BASE}/?splash=2200`)
+  await lp.waitForSelector('#boot canvas')
+  await lp.waitForTimeout(900)
+  ok((await lp.locator('#boot').count()) === 1 && !(await lp.locator('#root').isVisible()), 'the app is ready underneath, but the animation is still showing (the app waits its turn)')
+  await lp.waitForSelector('#boot', { state: 'detached', timeout: 10_000 })
+  const waited = Date.now() - began
+  ok(waited >= 2000 && waited < 4500, `the animation stayed up for about ${(waited / 1000).toFixed(1)} s before the app appeared`)
+  await lp.waitForSelector('text=Create link')
+  ok(await lp.locator('#root').isVisible(), 'then the app appears')
+  await lingerCtx.close()
+
+  const quick = await browser.newContext({ viewport: { width: 900, height: 700 } })
+  const qp = await quick.newPage()
+  const qStart = Date.now()
+  await qp.goto(`${BASE}/`)
+  await qp.waitForSelector('text=Create link')
+  ok(Date.now() - qStart < 2500, 'automated browsers are not held up by the splash')
+  await quick.close()
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')
