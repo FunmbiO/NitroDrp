@@ -1,0 +1,12 @@
+# Store text with LF line endings and check it out the same way, on every OS. A shell script with Windows (CRLF)
+# endings fails on Linux with "bad interpreter" or "command not found\r".
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+
+# binary files: never touch line endings or diff them as text
+*.png binary
+*.webp binary
+*.ico binary
+*.woff2 binary
