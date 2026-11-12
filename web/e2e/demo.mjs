@@ -120,6 +120,40 @@ try {
   await sender.click('button:has-text("Email more people")')
   ok((await sender.textContent('.email-card')).includes('Demo: no email is really sent'), 'demo says no email is really sent')
 
+  // installable app: manifest, icons, and a service worker that lets it open offline
+  const app = await context.newPage()
+  await app.goto(`${BASE}/`)
+  const manifestHref = await app.getAttribute('link[rel=manifest]', 'href')
+  ok(manifestHref === '/manifest.webmanifest', 'page links the web app manifest')
+  const mres = await context.request.get(`${BASE}${manifestHref}`)
+  const manifest = await mres.json()
+  ok(mres.headers()['content-type']?.includes('manifest') || mres.headers()['content-type']?.includes('json'), `manifest is served as ${mres.headers()['content-type']}`)
+  ok(manifest.display === 'standalone' && manifest.start_url === '/' && manifest.name === 'NitroDrp', 'manifest: standalone, starts at /, named NitroDrp')
+  const sizes = new Set(manifest.icons.map((i) => i.sizes))
+  ok(sizes.has('192x192') && sizes.has('512x512') && manifest.icons.some((i) => i.purpose === 'maskable'), 'manifest has 192, 512 and a maskable icon')
+  for (const src of [...manifest.icons.map((i) => i.src), await app.getAttribute('link[rel=apple-touch-icon]', 'href')]) {
+    const r = await context.request.get(`${BASE}${src}`)
+    ok(r.ok() && r.headers()['content-type'] === 'image/png', `icon loads: ${src}`)
+  }
+  await app.evaluate(() => navigator.serviceWorker.ready)
+  await app.reload()
+  ok(await app.evaluate(() => !!navigator.serviceWorker.controller), 'service worker is controlling the page')
+  const cached = await app.evaluate(async () => {
+    const urls = []
+    for (const name of await caches.keys()) for (const r of await (await caches.open(name)).keys()) urls.push(new URL(r.url).pathname)
+    return urls
+  })
+  ok(cached.includes('/') && cached.some((u) => u.startsWith('/assets/')), `app files are saved for offline (${cached.length} entries)`)
+  ok(!cached.some((u) => u.startsWith('/api/')), 'nothing under /api is ever saved')
+  await context.setOffline(true)
+  await app.goto(`${BASE}/recent`)
+  await app.waitForSelector('.brand', { timeout: 10_000 })
+  ok(await app.locator('.offline-banner').isVisible(), 'offline: the app still opens and says you are offline')
+  await context.setOffline(false)
+  await app.waitForSelector('.offline-banner', { state: 'detached', timeout: 10_000 })
+  ok(true, 'back online: the offline notice goes away')
+  await app.close()
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')

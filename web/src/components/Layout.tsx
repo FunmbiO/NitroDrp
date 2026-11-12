@@ -14,7 +14,7 @@ export function Layout() {
     <>
       {!online && !EMBED && (
         <div className="offline-banner" role="status">
-          You're offline. Links and downloads need a connection. Uploads pause and resume when you're back.
+          You're offline. Links and downloads need a connection. If an upload stops, press Resume upload when you're back.
         </div>
       )}
       {DEMO && (
