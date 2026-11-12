@@ -30,6 +30,20 @@ export interface AppConfig { emailEnabled: boolean; maxRecipientsPerRequest: num
 export interface EmailRequest { recipients: string[]; message?: string; senderName?: string; senderEmail?: string }
 export interface EmailResult { email: string; sent: boolean; error?: string | null }
 export interface EmailResponse { results: EmailResult[]; remaining: number }
+export interface AuthStatus { passkeysEnabled: boolean; signedIn: boolean; hasPasskeys: boolean }
+export interface PasskeySummary { id: string; label: string; createdAt: string; lastUsedAt: string | null; current: boolean }
+/** A passkey ceremony's options and the device's answer, as JSON. Their shape belongs to the browser's WebAuthn API. */
+export type WebAuthnJson = Record<string, unknown>
+/** One live link in the owner's list, the same on every device. */
+export interface ShareSummary {
+  token: string
+  createdAt: string
+  expiresAt: string
+  fileCount: number
+  totalSize: number
+  passwordProtected: boolean
+  downloadLimit: number
+}
 export interface DownloadLink { id: string; name: string; size: number; url: string }
 
 import { demo } from './demoInstance'
@@ -42,7 +56,8 @@ export interface ZipLink { url: string; fileName?: string }
 async function call<T>(method: string, path: string, opts: { body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
-    headers: { ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...opts.headers },
+    // X-Requested-With proves the request came from this app, not another site using the sign-in cookie.
+    headers: { 'X-Requested-With': 'nitrodrp', ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...opts.headers },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   })
   if (res.status === 204) return undefined as T
@@ -54,30 +69,46 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; hea
   return data as T
 }
 
-const owner = (key: string) => ({ 'X-Owner-Key': key })
+/** A signed-in device has no owner key for links made elsewhere; its sign-in cookie covers it. */
+const owner = (key?: string): Record<string, string> => (key ? { 'X-Owner-Key': key } : {})
 
 const realApi = {
   createShare: (
-    apiKey: string,
+    apiKey: string | undefined,
     body: { files: { name: string; size: number; contentType: string }[]; expiresInDays: number; password?: string; downloadLimit?: number },
-  ) => call<CreateShareResponse>('POST', '/shares', { body, headers: { 'X-Api-Key': apiKey } }),
+  ) => call<CreateShareResponse>('POST', '/shares', { body, headers: apiKey ? { 'X-Api-Key': apiKey } : {} }),
 
-  presign: (token: string, fileId: string, ownerKey: string, partNumber: number) =>
+  presign: (token: string, fileId: string, ownerKey: string | undefined, partNumber: number) =>
     call<{ urls: { partNumber: number; url: string }[] }>('POST', `/shares/${token}/files/${fileId}/presign`, {
       body: { partNumbers: [partNumber] },
       headers: owner(ownerKey),
     }).then((r) => r.urls[0].url),
 
-  completeFile: (token: string, fileId: string, ownerKey: string, parts: { partNumber: number; eTag: string }[]) =>
+  completeFile: (token: string, fileId: string, ownerKey: string | undefined, parts: { partNumber: number; eTag: string }[]) =>
     call<void>('POST', `/shares/${token}/files/${fileId}/complete`, { body: { parts }, headers: owner(ownerKey) }),
 
-  uploadStatus: (token: string, ownerKey: string) => call<UploadStatus>('GET', `/shares/${token}/upload`, { headers: owner(ownerKey) }),
+  uploadStatus: (token: string, ownerKey: string | undefined) => call<UploadStatus>('GET', `/shares/${token}/upload`, { headers: owner(ownerKey) }),
 
-  finalize: (token: string, ownerKey: string) => call<void>('POST', `/shares/${token}/finalize`, { headers: owner(ownerKey) }),
-  deleteShare: (token: string, ownerKey: string) => call<void>('DELETE', `/shares/${token}`, { headers: owner(ownerKey) }),
+  finalize: (token: string, ownerKey: string | undefined) => call<void>('POST', `/shares/${token}/finalize`, { headers: owner(ownerKey) }),
+  deleteShare: (token: string, ownerKey: string | undefined) => call<void>('DELETE', `/shares/${token}`, { headers: owner(ownerKey) }),
+
+  // --- who is signed in, and passkeys ---
+  authStatus: () => call<AuthStatus>('GET', '/auth/status'),
+  /** `accessKey` is only for the first device (or after losing every passkey): it proves you're the owner. */
+  registerBegin: (accessKey?: string) =>
+    call<{ flowId: string; options: WebAuthnJson }>('POST', '/auth/register/begin', { headers: accessKey ? { 'X-Api-Key': accessKey } : {} }),
+  registerFinish: (flowId: string, label: string, credential: WebAuthnJson, accessKey?: string) =>
+    call<PasskeySummary>('POST', '/auth/register/finish', { body: { flowId, label, credential }, headers: accessKey ? { 'X-Api-Key': accessKey } : {} }),
+  loginBegin: () => call<{ flowId: string; options: WebAuthnJson }>('POST', '/auth/login/begin'),
+  loginFinish: (flowId: string, credential: WebAuthnJson) => call<void>('POST', '/auth/login/finish', { body: { flowId, credential } }),
+  logout: () => call<void>('POST', '/auth/logout'),
+  passkeys: () => call<PasskeySummary[]>('GET', '/auth/passkeys'),
+  removePasskey: (id: string) => call<void>('DELETE', `/auth/passkeys/${encodeURIComponent(id)}`),
+  /** Every live link, newest first. Needs a sign-in (or the access key). */
+  listMine: () => call<ShareSummary[]>('GET', '/shares'),
 
   getConfig: () => call<AppConfig>('GET', '/config'),
-  sendEmail: (token: string, ownerKey: string, body: EmailRequest) =>
+  sendEmail: (token: string, ownerKey: string | undefined, body: EmailRequest) =>
     call<EmailResponse>('POST', `/shares/${token}/email`, { body, headers: owner(ownerKey) }),
 
   getShare: (token: string) => call<ShareView>('GET', `/shares/${token}`),

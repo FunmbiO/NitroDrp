@@ -4,7 +4,7 @@
  * page: uploaded files are never read or sent anywhere, and "downloads" are small placeholder files.
  * Shares live in localStorage so a link opened in another tab of the same browser works.
  */
-import type { Api, CreateShareResponse, DownloadLink, ShareView, UploadStatus, ZipLink } from './api'
+import type { Api, CreateShareResponse, DownloadLink, ShareSummary, ShareView, UploadStatus, ZipLink } from './api'
 import { ApiError } from './errors'
 import type { UploadedPart } from './upload'
 import { buildStoredZip } from './zip'
@@ -117,10 +117,10 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
     if (!password) throw new ApiError(401, 'password_required', 'This link needs a password.')
     if (password !== s.password) throw new ApiError(401, 'wrong_password', "That password isn't right.")
   }
-  function owned(token: string, ownerKey: string): DemoShare {
+  function owned(token: string, ownerKey: string | undefined): DemoShare {
     const s = state.shares[token]
     if (!s) throw new ApiError(404, 'not_found', "This link doesn't exist.")
-    if (ownerKey !== s.ownerKey) throw new ApiError(403, 'bad_owner_key', "You can't change this link.")
+    if (ownerKey !== undefined && ownerKey !== s.ownerKey) throw new ApiError(403, 'bad_owner_key', "You can't change this link.")
     return s
   }
   const view = (s: DemoShare, unlocked: boolean): ShareView => ({
@@ -184,6 +184,27 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
       if (s.files.some((f) => f.status !== 'Complete')) throw new ApiError(409, 'incomplete', "Some files haven't finished uploading.")
       s.status = 'Active'
       persist()
+    },
+
+    // The demo has no sign-in: everyone is the owner of everything in their own browser.
+    async authStatus() {
+      return { passkeysEnabled: false, signedIn: true, hasPasskeys: false }
+    },
+    async registerBegin() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
+    async registerFinish() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
+    async loginBegin() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
+    async loginFinish() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
+    async logout() {},
+    async passkeys() { return [] },
+    async removePasskey() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
+    async listMine(): Promise<ShareSummary[]> {
+      return Object.values(state.shares)
+        .filter((s) => s.status === 'Active' && s.ownerKey !== 'demo-owner' && s.expiresAt > now())
+        .sort((a, b) => b.expiresAt - a.expiresAt)
+        .map((s) => ({
+          token: s.token, createdAt: iso(s.expiresAt), expiresAt: iso(s.expiresAt), fileCount: s.files.length,
+          totalSize: s.files.reduce((n, f) => n + f.size, 0), passwordProtected: !!s.password, downloadLimit: s.limit,
+        }))
     },
 
     async getConfig() {

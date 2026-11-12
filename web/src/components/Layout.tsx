@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { DEMO, EMBED } from '../lib/config'
 import { useEmbedAutoHeight } from '../lib/embed'
 import { useOnline } from '../lib/online'
+import { useAuth } from '../lib/auth'
 import { Footer } from './Footer'
 import { LogoMark } from './Icons'
 
@@ -9,6 +10,7 @@ export function Layout() {
   const { pathname } = useLocation()
   useEmbedAutoHeight()
   const online = useOnline()
+  const { signedIn, status } = useAuth()
   const isRecipient = pathname.startsWith('/d/')
   return (
     <>
@@ -28,10 +30,17 @@ export function Layout() {
             <LogoMark />
             NitroDrp
           </Link>
-          {!isRecipient && (
-            <Link to="/recent" className="nav-link">
-              Recent links
-            </Link>
+          {!isRecipient && (signedIn || !status?.passkeysEnabled) && (
+            <nav className="nav">
+              <Link to="/recent" className="nav-link">
+                Recent links
+              </Link>
+              {signedIn && status?.passkeysEnabled && (
+                <Link to="/devices" className="nav-link">
+                  Devices
+                </Link>
+              )}
+            </nav>
           )}
         </header>
       )}

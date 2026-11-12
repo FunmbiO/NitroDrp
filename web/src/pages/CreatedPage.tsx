@@ -1,16 +1,34 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, type AppConfig, type EmailResponse, type EmailResult } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
 import { parseRecipients } from '../lib/email'
 import { formatBytes, formatExpiry } from '../lib/format'
-import { findRecent, removeRecent } from '../lib/storage'
+import { findRecent, removeRecent, type RecentShare } from '../lib/storage'
 import { CheckIcon } from '../components/Icons'
 
 export function CreatedPage() {
   const { token = '' } = useParams()
   const nav = useNavigate()
-  const share = findRecent(token)
+  const { signedIn } = useAuth()
+  const local = findRecent(token)
+  // A link made on another device isn't in this browser's storage, but the server knows it.
+  const [fetched, setFetched] = useState<RecentShare | null>(null)
+  const [looked, setLooked] = useState(false)
+  useEffect(() => {
+    if (local || !signedIn) return
+    api
+      .listMine()
+      .then((all) => {
+        const s = all.find((x) => x.token === token)
+        if (s) setFetched({ ...s, ownerKey: '', createdAt: s.createdAt, downloadLimit: s.downloadLimit || null })
+      })
+      .catch(() => {})
+      .finally(() => setLooked(true))
+  }, [local, signedIn, token])
+  const share = local ?? fetched
+  const ownerKey = local?.ownerKey // none for a link from another device: the sign-in cookie covers it
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
   const handedOver = (useLocation().state as { emailOutcome?: { response?: EmailResponse; error?: string } } | null)?.emailOutcome
@@ -25,11 +43,13 @@ export function CreatedPage() {
     api.getConfig().then(setConfig, () => setConfig(null))
   }, [])
 
+  if (!share && !local && signedIn && !looked) return <main className="page narrow"><p className="muted" role="status">Loading…</p></main>
+
   if (!share) {
     return (
       <main className="page narrow">
         <div className="card roomy">
-          <h1 className="sm">That link isn't saved in this browser</h1>
+          <h1 className="sm">{signedIn ? "That link isn't in your account" : "That link isn't saved in this browser"}</h1>
           <Link to="/">Send files</Link>
         </div>
       </main>
@@ -51,7 +71,7 @@ export function CreatedPage() {
     setSending(true)
     setEmailError('')
     try {
-      const r = await api.sendEmail(token, share.ownerKey, {
+      const r = await api.sendEmail(token, ownerKey, {
         recipients: valid,
         message: draft.message.trim() || undefined,
         senderName: draft.senderName.trim() || undefined,
@@ -72,7 +92,7 @@ export function CreatedPage() {
   const del = async () => {
     if (!confirm('Delete this link and its files now?')) return
     try {
-      await api.deleteShare(token, share.ownerKey)
+      await api.deleteShare(token, ownerKey)
       removeRecent(token)
       nav('/')
     } catch (e) {

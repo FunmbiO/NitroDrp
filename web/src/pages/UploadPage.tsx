@@ -7,6 +7,7 @@ import { formatBytes } from '../lib/format'
 import { matchFiles, sigOf } from '../lib/resume'
 import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
 import { DEMO } from '../lib/config'
+import { useAuth } from '../lib/auth'
 import { putPart } from '../lib/transport'
 import { uploadParts, type UploadedPart } from '../lib/upload'
 import { CheckIcon, CloseIcon, FileIcon, UploadIcon } from '../components/Icons'
@@ -42,6 +43,7 @@ export function UploadPage() {
   const [usePw, setUsePw] = useState(false)
   const [password, setPassword] = useState('')
   const [limit, setLimit] = useState('')
+  const { signedIn } = useAuth()
   const [apiKey, setKey] = useState(DEMO ? 'demo' : getApiKey())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -87,7 +89,7 @@ export function UploadPage() {
     abort.current = ctl
     try {
       const key = apiKey.trim()
-      if (!DEMO) setApiKey(key)
+      if (!DEMO && !signedIn) setApiKey(key) // signed in: the passkey session replaces the key
 
       let token: string
       let ownerKey: string
@@ -118,7 +120,7 @@ export function UploadPage() {
           plans[resumeMap[p]] = status.files[p]
         })
       } else {
-        const created = await api.createShare(key, {
+        const created = await api.createShare(signedIn ? undefined : key, {
           files: items.map((i) => ({ name: i.file.name, size: i.file.size, contentType: i.file.type || 'application/octet-stream' })),
           expiresInDays: days,
           password: usePw && password ? password : undefined,
@@ -206,7 +208,7 @@ export function UploadPage() {
     await discardPending()
   }
 
-  const canSend = items.length > 0 && !busy && apiKey.trim().length > 0 && (resuming || !usePw || password.length > 0) && !emailProblem
+  const canSend = items.length > 0 && !busy && (signedIn || apiKey.trim().length > 0) && (resuming || !usePw || password.length > 0) && !emailProblem
 
   return (
     <main className="page">
@@ -330,7 +332,7 @@ export function UploadPage() {
             </div>
           )}
 
-          {!DEMO && (
+          {!DEMO && !signedIn && (
             <div className="field">
               <label htmlFor="key">Access key</label>
               <input id="key" className="input" type="password" autoComplete="current-password" placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
