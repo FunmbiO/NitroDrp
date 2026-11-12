@@ -18,3 +18,5 @@ dist/
 secrets/
 *.pem
 *.tsbuildinfo
+# account-specific Terraform backend settings (the .example is committed)
+infra/terraform/backend.hcl

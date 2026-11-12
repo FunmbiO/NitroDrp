@@ -1,0 +1,6 @@
+# The bootstrap script writes the real backend.hcl for you. This shows its shape.
+bucket       = "nitrodrp-tfstate-123456789012"
+key          = "nitrodrp/terraform.tfstate"
+region       = "us-east-2"
+encrypt      = true
+use_lockfile = true
