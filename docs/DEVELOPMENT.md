@@ -65,6 +65,26 @@ Without Docker, start an S3 emulator and DynamoDB Local yourself, then run the A
 
 CI runs all of these except the deployed-site checks (`.github/workflows/ci.yml`).
 
+## The loading screen
+
+![The loading animation: a pixel racer grabs a NOS bottle, boosts, jumps a ramp, flips and drifts](screenshots/loading.gif)
+
+A pixel racer drawn in code (`web/src/loader/`), shown while the app loads:
+
+| File | What it does |
+|---|---|
+| `sprites.ts` | The pixel art: car, wheels, NOS bottle, flames, ramp. Built from small drawing helpers, with the app's own colours plus NOS blue. |
+| `timeline.ts` | The choreography as pure functions of time: road speed, boost, ramp, flip, drift. One loop is 6.4 s. |
+| `scene.ts` | Draws one frame for a given time on a 160 x 90 canvas: sky, sun, skylines, road, car, effects, HUD. |
+| `start.ts` | Runs it at 20 frames a second, scales it in whole-number steps so pixels stay square, and shows a still frame under "reduce motion". |
+| `boot.ts` | The first screen. The build (`inlineBoot` in `vite.config.ts`) puts it **inside `index.html`**, so it runs before the main bundle has downloaded. |
+| `PixelLoader.tsx` | The same animation for in-app loading states. It fades in after 0.3 s, so quick loads never flash it. |
+
+Both use the page's own clock, so the handover from the first screen to an in-app loader carries on mid-stunt. Change
+the look in `sprites.ts` and `scene.ts`, the timing in `timeline.ts`. Tests: `src/loader/loader.test.ts` (the art is
+valid, the car stays in the picture while flipped, the loop is seamless) and the "loading screen" checks in
+`npm run e2e:demo`, which hold the main script back and look at what the page shows.
+
 ## Pinned dependencies
 
 Builds are reproducible on purpose:

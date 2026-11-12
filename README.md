@@ -52,6 +52,9 @@ The demo runs its whole backend inside your browser, so nothing you pick is uplo
 - **"Download all" as a streamed .zip** (ZIP64, flat memory), verified with a 4.8 GB archive.
 - **Send the link by email** (optional, Amazon SES): type recipients on the upload page or later, with a note.
   The sender gets the replies, the password is never emailed, and each link has a lifetime cap.
+- **A loading screen with some personality.** Instead of a blank page, a pixel racer grabs NOS bottles, boosts, jumps a
+  ramp, flips and drifts. It starts before the app's code has arrived, hands over seamlessly to in-app loading states, and
+  becomes a still picture if you've asked your device for less motion ([details](docs/DEVELOPMENT.md#the-loading-screen)).
 - **Installs on a phone** as a home-screen app (a PWA): full screen, its own icon, opens offline.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **One app on every device:** sign in with Face ID or a fingerprint (passkeys), and see the same links on your phone
