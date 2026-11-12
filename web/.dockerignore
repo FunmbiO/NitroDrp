@@ -1,2 +1,6 @@
 node_modules
 dist
+# dev and test tooling the image doesn't need (keeps the build context small)
+e2e
+mock
+*.tsbuildinfo # tsc's incremental cache from a local build; a stale copy could make the image build skip work
