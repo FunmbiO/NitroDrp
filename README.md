@@ -29,6 +29,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 - **"Download all" as a streamed .zip** (ZIP64, flat memory), verified with a 4.8 GB archive.
 - **Send the link by email** (optional, Amazon SES): type recipients on the upload page or later, with a note.
   The sender gets the replies, the password is never emailed, and each link has a lifetime cap.
+- **Installs on a phone** as a home-screen app (a PWA): full screen, its own icon, opens offline.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **Private by design:** a shared access key to create links, a per-share owner key, PBKDF2 passwords, least-privilege
   AWS access, and rate limits that forged headers can't dodge.
@@ -47,6 +48,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 | [Deploying](docs/DEPLOY.md) | AWS and Terraform, `.env`, the three ways to expose it, CloudFront |
 | [Lightsail guide](docs/LIGHTSAIL.md) | Step by step: a small always-on server with automatic HTTPS |
 | [Terraform state](docs/TERRAFORM_STATE.md) | Keeping state in S3, moving to it, recovering |
+| [Phone app](docs/PHONE.md) | Installing NitroDrp on a phone's home screen and what to expect |
 | [Email](docs/EMAIL.md) | Emailing links with Amazon SES: setup, DKIM records, leaving the sandbox, limits |
 | [The demo](docs/DEMO.md) | The in-browser demo, deploying it on Vercel, embedding it |
 
