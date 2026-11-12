@@ -23,3 +23,6 @@ infra/terraform/backend.hcl
 
 __pycache__/
 *.pyc
+
+# personal notes and handbooks stay out of the repo
+personal/
