@@ -4,6 +4,7 @@ import { api, ApiError, type ShareView } from '../lib/api'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { MAX_PASSWORD } from '../lib/validate'
 import { DownloadIcon } from '../components/Icons'
+import { PixelLoader } from '../loader/PixelLoader'
 
 type State =
   | { kind: 'loading' }
@@ -36,7 +37,7 @@ export function DownloadPage() {
     )
   }, [token])
 
-  if (state.kind === 'loading') return <main className="page narrow"><p className="muted mono">Loading…</p></main>
+  if (state.kind === 'loading') return <main className="page narrow"><PixelLoader /></main>
   if (state.kind === 'gone') {
     return (
       <main className="page narrow">

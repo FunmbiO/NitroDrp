@@ -7,6 +7,7 @@ import { parseRecipients } from '../lib/email'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { findRecent, removeRecent, type RecentShare } from '../lib/storage'
 import { CheckIcon } from '../components/Icons'
+import { PixelLoader } from '../loader/PixelLoader'
 
 export function CreatedPage() {
   const { token = '' } = useParams()
@@ -43,7 +44,7 @@ export function CreatedPage() {
     api.getConfig().then(setConfig, () => setConfig(null))
   }, [])
 
-  if (!share && !local && signedIn && !looked) return <main className="page narrow"><p className="muted" role="status">Loading…</p></main>
+  if (!share && !local && signedIn && !looked) return <main className="page narrow"><PixelLoader /></main>
 
   if (!share) {
     return (

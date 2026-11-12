@@ -4,6 +4,7 @@ import { api, type ShareSummary } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { getRecent, removeRecent } from '../lib/storage'
+import { PixelLoader } from '../loader/PixelLoader'
 
 interface Row {
   token: string
@@ -64,7 +65,7 @@ export function RecentPage() {
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       {signedIn && remote === null ? (
-        <div className="card pad"><span className="muted" role="status">Loading…</span></div>
+        <div className="card pad"><PixelLoader label="Loading your links" /></div>
       ) : rows.length === 0 ? (
         <div className="card pad"><span className="muted">Nothing here yet. <Link to="/">Send something.</Link></span></div>
       ) : (

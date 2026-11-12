@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { SignInPage } from '../pages/SignInPage'
+import { PixelLoader } from '../loader/PixelLoader'
 
 /** The sender's pages. Recipients' download links are never behind this. */
 export function RequireSignIn() {
@@ -16,7 +17,7 @@ export function RequireSignIn() {
             <button type="button" className="btn" onClick={() => void refresh()}>Try again</button>
           </div>
         ) : (
-          <p className="muted" role="status">Loading…</p>
+          <PixelLoader />
         )}
       </main>
     )

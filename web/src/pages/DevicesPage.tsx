@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type PasskeySummary } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { PixelLoader } from '../loader/PixelLoader'
 import { createPasskey, passkeyErrorMessage, passkeysSupported } from '../lib/passkeys'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'never')
@@ -58,7 +59,7 @@ export function DevicesPage() {
 
       <div className="card">
         {keys === null ? (
-          <div className="pad muted">Loading…</div>
+          <div className="pad"><PixelLoader label="Loading your devices" /></div>
         ) : (
           keys.map((k) => (
             <div className="recent-row" key={k.id}>
