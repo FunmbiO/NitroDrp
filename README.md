@@ -1,5 +1,7 @@
 # NitroDrp
 
+<img src="web/public/icons/icon-192.png" alt="The NitroDrp logo: a blue NOS bottle with an upload arrow on its label" width="96" align="right">
+
 [![CI](https://github.com/FunmbiO/NitroDrp/actions/workflows/ci.yml/badge.svg)](https://github.com/FunmbiO/NitroDrp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -121,6 +123,12 @@ real service.
 
 ## Branding
 
+**The NitroDrp logo** is a NOS bottle carrying an upload arrow, drawn as pixel art from one source file,
+`web/src/assets/logo.json`. The header logo, the favicon and every phone icon are generated from it: edit the grid,
+run `python3 dev/make-icons.py`, and bump `VERSION` in `web/public/sw.js` so phones drop the old icon. It is MIT
+licensed with the rest of the code.
+
+**The credit line.**
 Every page ends with a credit line: the Jaded Media monogram and "Powered by jadedmedia.ca, used for personal and
 customer files". To rebrand your own instance, change the text and link in `web/src/components/Footer.tsx` and
 replace `web/src/assets/jadedmedia-logo.png` (a white logo on a transparent background suits the dark theme).

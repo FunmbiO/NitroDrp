@@ -45,7 +45,7 @@ uploads go to storage sites, not through the copy.
 - Files: `web/public/manifest.webmanifest`, `web/public/sw.js`, the icons in `web/public/icons/`, and the tags in
   `web/index.html`. The service worker only registers in production builds, never in `npm run dev` and never inside
   an embed.
-- Regenerate the icons (the orange arrow from the favicon): `python3 dev/make-icons.py` (needs Pillow).
+- Regenerate the favicon and icons from the logo (`web/src/assets/logo.json`): `python3 dev/make-icons.py` (needs Pillow). Then bump `VERSION` in `sw.js`, because the icons live in the saved copy and phones would otherwise keep showing the old one.
 - If a release needs every phone to drop its saved copy, change `VERSION` in `sw.js`.
 - `/sw.js` and the manifest are served with `Cache-Control: no-cache` (`web/nginx.conf`, `web/vercel.json`) so
   updates always reach phones.
