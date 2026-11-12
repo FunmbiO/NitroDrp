@@ -88,6 +88,23 @@ the look in `sprites.ts` and `scene.ts`, the timing in `timeline.ts`. Tests: `sr
 valid, the car stays in the picture while flipped, the loop is seamless) and the "loading screen" checks in
 `npm run e2e:demo`, which hold the main script back and look at what the page shows.
 
+## The "email sent" animation
+
+When an email goes out, an F1 car with a NOS bottle on its spine sits on the grid under three start lights, launches
+on a flame, speeds off to the right leaving a trail of smoke, and the words **EMAIL SENT** appear with an envelope
+(or "2 OF 3 SENT" if some addresses failed). It plays after creating a link with email ticked, and again when you
+send from the link page. Click, tap or press any key to skip it. Code in `web/src/celebrate/`:
+
+| File | What it does |
+|---|---|
+| `f1.ts` | The F1 car, wheels, big NOS flame, envelope and smoke puffs, built with the same drawing helpers as the racer. |
+| `timeline.ts` | The choreography as pure functions of time (about 3.9 s): lights, launch, exit, smoke, words. |
+| `scene.ts` | Draws a frame on the shared night backdrop (`loader/backdrop.ts`). |
+| `EmailSent.tsx` | The full-screen overlay: scales the picture to the screen, plays it, and calls back when done or skipped. |
+| `mode.ts` | When it plays: in full for people, a **still picture under "reduce motion"**, and **skipped in automated browsers** so tests stay quick (add `?celebrate=1` to the address to turn it on in a test). |
+
+Tests: `src/celebrate/celebrate.test.ts` and the "email sent" checks in `npm run e2e:demo`.
+
 ## Pinned dependencies
 
 Builds are reproducible on purpose:

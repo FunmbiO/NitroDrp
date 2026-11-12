@@ -28,7 +28,7 @@ export const PALETTE: Record<string, string> = {
   e: '#ff4b1f', // flame red
 }
 
-class Grid {
+export class Grid {
   readonly px: string[][]
   constructor(readonly w: number, readonly h: number) {
     this.px = Array.from({ length: h }, () => Array<string>(w).fill('.'))
