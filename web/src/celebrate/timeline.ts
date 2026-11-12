@@ -55,7 +55,8 @@ export function flameLength(t: number): number {
 }
 
 export const PUFF_LIFE = 1.9
-const PUFF_EVERY = 0.03
+export const MAX_PUFF = 11
+const PUFF_EVERY = 0.02
 
 export interface Puff {
   x: number
@@ -77,7 +78,9 @@ export function puffs(t: number): Puff[] {
     const wobble = ((i * 7919) % 5) - 2 // a deterministic bit of randomness
     const x = carX(born) + 8 - life * 10 + wobble
     const y = ROAD_Y - 5 - life * 16 + (wobble % 2)
-    out.push({ x, y, r: Math.min(8, 2 + Math.floor(life * 7)), age: life })
+    // the first puffs, from the spinning tyres at the launch, are bigger: a burnout cloud
+    const burnout = born < T_LAUNCH + 0.3 ? 2 : 0
+    out.push({ x, y, r: Math.min(MAX_PUFF, 3 + burnout + Math.floor(life * 8)), age: life })
   }
   return out
 }

@@ -4,7 +4,7 @@ import { H, ROAD_Y, W } from '../loader/timeline'
 import { ENVELOPE, F1, F1_BODY, F1_FRONT_WHEEL, F1_REAR_WHEEL, PALETTE, bigFlame, puff } from './f1'
 import { celebrationMode } from './mode'
 import {
-  CAR_TOP, PUFF_LIFE, START_X, T_DONE, T_EXIT, T_GO, T_LAUNCH, T_LIGHT, carX, flameLength, frameCount, lights, puffs, sentLabel, shake,
+  CAR_TOP, MAX_PUFF, PUFF_LIFE, START_X, T_DONE, T_EXIT, T_GO, T_LAUNCH, T_LIGHT, carX, flameLength, frameCount, lights, puffs, sentLabel, shake,
   speedLinesOn, textBounce, textFrom, textVisible,
 } from './timeline'
 
@@ -92,7 +92,7 @@ describe('the timeline', () => {
 
   it('leaves a trail of smoke that is still there after the car has gone, and clears by the end', () => {
     expect(puffs(0.5)).toHaveLength(0)
-    expect(puffs(T_EXIT).length).toBeGreaterThan(25)
+    expect(puffs(T_EXIT).length).toBeGreaterThan(40)
     expect(puffs(T_EXIT + 0.6).length).toBeGreaterThan(15) // the trail hangs in the air
     expect(puffs(T_DONE).length).toBeLessThan(puffs(T_EXIT).length / 3) // thinning out
     expect(T_EXIT + PUFF_LIFE).toBeGreaterThanOrEqual(T_DONE - 0.5) // and almost gone by the last frame
@@ -103,8 +103,8 @@ describe('the timeline', () => {
     for (const p of ps) {
       expect(p.age).toBeGreaterThanOrEqual(0)
       expect(p.age).toBeLessThan(1)
-      expect(p.r).toBeGreaterThanOrEqual(2)
-      expect(p.r).toBeLessThanOrEqual(8)
+      expect(p.r).toBeGreaterThanOrEqual(3)
+      expect(p.r).toBeLessThanOrEqual(MAX_PUFF)
       expect(p.y).toBeGreaterThan(0)
       expect(p.y).toBeLessThan(ROAD_Y)
     }

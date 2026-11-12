@@ -55,6 +55,9 @@ The demo runs its whole backend inside your browser, so nothing you pick is uplo
 - **A loading screen with some personality.** Instead of a blank page, a pixel racer grabs NOS bottles, boosts, jumps a
   ramp, flips and drifts. It starts before the app's code has arrived, hands over seamlessly to in-app loading states, and
   becomes a still picture if you've asked your device for less motion ([details](docs/DEVELOPMENT.md#the-loading-screen)).
+- **A little ceremony when mail goes out.** An F1 car on NOS launches off the grid, leaves a trail of smoke, and "EMAIL
+  SENT" appears, before the link page ([details](docs/DEVELOPMENT.md#the-email-sent-animation)). Skippable, and a still
+  picture under "reduce motion".
 - **Installs on a phone** as a home-screen app (a PWA): full screen, its own icon, opens offline.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **One app on every device:** sign in with Face ID or a fingerprint (passkeys), and see the same links on your phone
