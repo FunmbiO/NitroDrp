@@ -7,7 +7,7 @@ the domain's DNS lives (Namecheap, for `jadedmedia.ca`). Examples below use `dro
 Cost: roughly US$7-10 a month for the server (needs at least 1 GB of memory), plus about US$1-2 for S3 and
 DynamoDB. Check current prices on the Lightsail pricing page.
 
-You need first: the AWS stack from the README (`terraform apply`, S3-only mode is fine) and an access key
+You need first: the AWS stack from [DEPLOY.md](DEPLOY.md#1-aws-and-terraform) (`terraform apply`, S3-only mode is fine) and an access key
 for the `nitrodrp-api` user.
 
 ## 1. Create the server (AWS console, Lightsail)
@@ -145,7 +145,7 @@ client-IP headers, so a visitor can't dodge the password-guess limit.
 - Updating: `cd ~/NitroDrp && git pull && docker compose --profile public up -d --build`.
 - After a reboot the containers come back on their own.
 - Nothing on the server needs backing up except `.env`: keep a copy in a password manager.
-- When AWS verifies your account for CloudFront, see "Deploying without CloudFront" in the README to switch it on.
+- When AWS verifies your account for CloudFront, see [CloudFront in DEPLOY.md](DEPLOY.md#cloudfront-optional) to switch it on.
 
 ## If something breaks
 | Symptom | Likely cause |
