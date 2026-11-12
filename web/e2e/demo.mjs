@@ -186,6 +186,90 @@ try {
   ok(true, 'a bare code and the Enter key work too')
   await opener.close()
 
+  // validation: every text box says what's wrong, right where it is, before anything is sent
+  const v = await context.newPage()
+  const dialogs = []
+  v.on('dialog', (d) => { dialogs.push(d.message()); d.dismiss() })
+  await v.goto(`${BASE}/`)
+  const pick = (name, text = 'hello') => v.setInputFiles('input[type=file]', [{ name, mimeType: 'text/plain', buffer: Buffer.from(text) }])
+  const submit = v.locator('button[type=submit]:has-text("Create link")')
+
+  await pick('setup.exe')
+  await v.waitForSelector('.field-error')
+  ok((await v.textContent('.field-error')).includes(".exe files can't be sent"), 'a blocked file type is flagged on the file itself')
+  ok(await submit.isDisabled(), 'and blocks creating the link')
+  await v.click('button[aria-label="Remove setup.exe"]')
+  await pick('empty.txt', '')
+  await v.waitForSelector('.field-error')
+  ok((await v.textContent('.field-error')).includes('empty'), 'an empty file is flagged')
+  await v.click('button[aria-label="Remove empty.txt"]')
+  await pick('ok.txt')
+  ok((await v.locator('.field-error').count()) === 0 && (await submit.isEnabled()), 'a normal file is fine')
+
+  for (const bad of ['abc', '0', '-3', '2.5', '1e3', '10001', '5 downloads']) {
+    await v.fill('#limit', bad)
+    ok((await v.textContent('#limit-err')).includes('whole number') && (await submit.isDisabled()), `download limit "${bad}" is refused with a reason`)
+  }
+  await v.fill('#limit', '5')
+  ok((await v.locator('#limit-err').count()) === 0 && (await submit.isEnabled()), 'download limit "5" is accepted')
+  await v.fill('#limit', '')
+
+  await v.check('text=Require a password')
+  await v.focus('#pw'); await v.press('#pw', 'Tab')
+  ok((await v.textContent('#pw-err')).includes('Enter a password') && (await submit.isDisabled()), 'an empty password is refused when the option is on')
+  await v.fill('#pw', 'x'.repeat(400))
+  ok((await v.inputValue('#pw')).length === 256, 'the password box stops at 256 characters')
+  await v.uncheck('text=Require a password')
+
+  await v.check('text=Also send the link by email')
+  ok((await v.getAttribute('#up-to', 'maxlength')) === '2000' && (await v.getAttribute('#up-msg', 'maxlength')) === '1000' && (await v.getAttribute('#up-name', 'maxlength')) === '60' && (await v.getAttribute('#up-from', 'maxlength')) === '254', 'the email boxes have length limits')
+  for (const bad of ['plainaddress', 'a@b', 'Bob <b@x.com>', 'a@example.com,@example.com', 'a b@example.com']) {
+    await v.fill('#up-to', bad)
+    ok((await v.textContent('#up-hint')).includes("isn't a valid") && (await submit.isDisabled()), `recipient "${bad}" is refused`)
+  }
+  await v.fill('#up-to', 'good@example.com')
+  await v.fill('#up-from', 'not an email')
+  ok((await v.textContent('#up-hint')).includes('Your email address'), 'a bad reply-to address is refused')
+  await v.fill('#up-from', '')
+  await v.fill('#up-msg', 'x'.repeat(30))
+  ok((await v.textContent('main')).includes('30 / 1000'), 'the message shows how much room is left')
+  await v.uncheck('text=Also send the link by email')
+
+  // hostile text is shown as text and never runs
+  await v.click('button[aria-label="Remove ok.txt"]')
+  const evilName = '"><img src=x onerror="window.__xss=1">.txt'
+  await pick(evilName)
+  await v.check('text=Also send the link by email')
+  await v.fill('#up-to', 'friend@example.com')
+  await v.fill('#up-name', '<script>window.__xss=2</script>')
+  await v.fill('#up-msg', '<img src=x onerror="window.__xss=3"> <script>window.__xss=4</script>')
+  await v.click('button[type=submit]')
+  await v.waitForURL('**/created/**', { timeout: 20_000 })
+  await v.waitForSelector('.results li')
+  const evilToken = v.url().split('/').pop()
+  ok((await v.evaluate(() => window.__xss)) === undefined && dialogs.length === 0, 'the created page runs none of the hostile text')
+  await v.goto(`${BASE}/recent`)
+  await v.waitForSelector(`a[href="/created/${evilToken}"]`)
+  await v.goto(`${BASE}/d/${evilToken}`)
+  await v.waitForSelector('.dl-row .name')
+  ok((await v.textContent('.dl-row .name')) === evilName, 'the download page shows the file name literally, as text')
+  ok((await v.locator('.dl-row img, main img[src="x"]').count()) === 0 && (await v.evaluate(() => window.__xss)) === undefined && dialogs.length === 0, 'and nothing in it runs')
+
+  // other boxes
+  await v.goto(`${BASE}/open`)
+  ok((await v.getAttribute('#open-link', 'maxlength')) === '2048', 'the open-link box has a length limit')
+  await v.fill('#open-link', '<script>alert(1)</script>')
+  await v.press('#open-link', 'Enter')
+  ok((await v.textContent('[role=alert]')).includes("doesn't look like") && v.url().endsWith('/open'), 'script text in the open-link box is refused, not opened')
+  await v.goto(`${BASE}/d/locked123456`)
+  await v.waitForSelector('#pw')
+  ok((await v.getAttribute('#pw', 'maxlength')) === '256', 'the unlock password box has a length limit')
+  await v.fill('#pw', "' OR '1'='1")
+  await v.click('button:has-text("Unlock")')
+  await v.waitForSelector('[role=alert]')
+  ok((await v.textContent('[role=alert]')).includes("isn't right"), 'an injection-style password is just a wrong password')
+  await v.close()
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')
