@@ -180,3 +180,12 @@ textarea.input { resize: vertical; min-height: 44px; font: inherit; }
 /* Inline validation: the message sits right under the field it's about */
 .field-error { color: var(--pink); font: 700 13px var(--mono); }
 .input[aria-invalid='true'] { border-color: var(--pink); }
+
+/* Loading animation (see src/loader). Fades in after a moment so a fast load never flashes it. */
+.pixel-loader { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 8px 0; animation: loader-in 0.25s 0.3s both; }
+.pixel-loader canvas { display: block; image-rendering: pixelated; border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--pink); background: var(--bg); max-width: 100%; }
+.pixel-loader-text { margin: 0; font: 700 14px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.dots::after { content: ''; animation: boot-dots 1.2s steps(1, end) infinite; }
+@keyframes loader-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes boot-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+@media (prefers-reduced-motion: reduce) { .pixel-loader { animation: none; } .dots::after { animation: none; content: '...'; } }

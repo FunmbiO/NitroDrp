@@ -16,9 +16,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <title>NitroDrp</title>
+    <!-- Painted before any script loads: no white flash, and the loading screen is centred from the first frame. -->
+    <style>
+      html, body { margin: 0; background: #0a0a0a; color: #f5f5f5; }
+      #boot { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; font: 700 14px 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+      #boot canvas { display: block; width: 320px; height: 180px; image-rendering: pixelated; border: 2px solid #f5f5f5; box-shadow: 6px 6px 0 #ff2e93; background: #0a0a0a; }
+      #boot p { margin: 0; }
+      .dots::after { content: ''; animation: boot-dots 1.2s steps(1, end) infinite; }
+      @keyframes boot-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+      @media (prefers-reduced-motion: reduce) { .dots::after { animation: none; content: '...'; } }
+    </style>
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite">
+      <canvas width="160" height="90" aria-hidden="true"></canvas>
+      <p>Loading<span class="dots" aria-hidden="true"></span></p>
+    </div>
     <div id="root"></div>
+    <script type="module" src="/src/loader/boot.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

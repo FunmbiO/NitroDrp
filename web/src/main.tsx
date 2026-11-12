@@ -12,9 +12,19 @@ import { AuthProvider } from './lib/auth'
 import { RequireSignIn } from './components/RequireSignIn'
 import { EMBED } from './lib/config'
 import './styles.css'
+import { useEffect } from 'react'
+
+/** Takes the first loading screen away once the app has put its own first screen on the page. */
+function BootCleanup() {
+  useEffect(() => {
+    document.getElementById('boot')?.remove()
+  }, [])
+  return null
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <BootCleanup />
     <BrowserRouter>
       <AuthProvider>
         <Routes>
