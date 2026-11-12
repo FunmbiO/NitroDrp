@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Amazon.DynamoDBv2;
 using Amazon.S3;
@@ -17,6 +19,16 @@ builder.Services.Configure<NitroDrpOptions>(builder.Configuration.GetSection("Ni
 var opts = builder.Configuration.GetSection("NitroDrp").Get<NitroDrpOptions>() ?? new();
 if (opts.ApiKey.Length < 16) throw new InvalidOperationException("NitroDrp:ApiKey must be set (16+ characters).");
 if (string.IsNullOrWhiteSpace(opts.S3.Bucket)) throw new InvalidOperationException("NitroDrp:S3:Bucket must be set.");
+
+// Requests are small JSON documents (file bytes go straight to S3), so a small cap keeps a hostile client from making
+// the server buffer megabytes. Numbers must be numbers (not "7"), and nesting is limited.
+const long MaxBodyBytes = 1024 * 1024;
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = MaxBodyBytes);
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+    o.SerializerOptions.MaxDepth = 16;
+});
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAmazonDynamoDB>(_ => DynamoShareStore.CreateClient(opts.Dynamo));
@@ -117,11 +129,41 @@ app.UseExceptionHandler(errors => errors.Run(async ctx =>
         await ctx.Response.WriteAsJsonAsync(new { code = se.Code, message = se.Message });
         return;
     }
+    // A request the framework couldn't read (broken JSON, a wrong type, a bad number in the address, too big):
+    // the client's mistake, so a 4xx, and not worth an error in the log.
+    if (ex is BadHttpRequestException bad)
+    {
+        ctx.Response.StatusCode = bad.StatusCode is >= 400 and < 500 ? bad.StatusCode : StatusCodes.Status400BadRequest;
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            code = ctx.Response.StatusCode == StatusCodes.Status413PayloadTooLarge ? "request_too_large" : "bad_request",
+            message = ctx.Response.StatusCode == StatusCodes.Status413PayloadTooLarge ? "That request is too large." : "That request wasn't valid.",
+        });
+        return;
+    }
+    if (ex is JsonException)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await ctx.Response.WriteAsJsonAsync(new { code = "bad_request", message = "That request wasn't valid." });
+        return;
+    }
     ctx.RequestServices.GetRequiredService<ILogger<Program>>().LogError(ex, "Unhandled error");
     ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
     await ctx.Response.WriteAsJsonAsync(new { code = "internal_error", message = "Something went wrong." });
 }));
 app.UseRateLimiter();
+
+// Refuse an oversized body up front, from its declared length (Kestrel enforces the same cap while reading).
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.ContentLength > MaxBodyBytes)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+        await ctx.Response.WriteAsJsonAsync(new { code = "request_too_large", message = "That request is too large." });
+        return;
+    }
+    await next();
+});
 
 if (opts.Dynamo.AutoCreateTable)
     await app.Services.GetRequiredService<DynamoShareStore>().EnsureTableAsync(CancellationToken.None);

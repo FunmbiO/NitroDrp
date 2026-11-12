@@ -18,6 +18,17 @@ public static class ShareEndpoints
 
         var shares = api.MapGroup("/shares");
 
+        // A token or file id that isn't shaped like ours can't exist: answer "not found" without touching the
+        // database (whose keys have length limits, and which should never see arbitrary input).
+        shares.AddEndpointFilter(async (ctx, next) =>
+        {
+            var route = ctx.HttpContext.Request.RouteValues;
+            if ((route.TryGetValue("token", out var t) && !Ids.IsToken(t?.ToString()))
+                || (route.TryGetValue("fileId", out var f) && !Ids.IsFileId(f?.ToString())))
+                throw ServiceException.NotFound();
+            return await next(ctx);
+        });
+
         // Sender: signed in with a passkey, or holding the access key (the recovery key, and what scripts use).
         // Everything after this uses the per-share owner key, or the signed-in session.
         shares.MapPost("/", async (

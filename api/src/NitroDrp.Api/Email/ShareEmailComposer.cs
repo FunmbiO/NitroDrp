@@ -82,7 +82,7 @@ public static class ShareEmailComposer
     /// <summary>One line, no control characters (so nothing can break a header), trimmed and capped.</summary>
     public static string OneLine(string s, int max)
     {
-        var clean = new string(s.Select(c => char.IsControl(c) ? ' ' : c).ToArray()).Trim();
+        var clean = Services.TextSafety.SingleLine(s);
         return clean.Length <= max ? clean : clean[..max].TrimEnd() + "…";
     }
 

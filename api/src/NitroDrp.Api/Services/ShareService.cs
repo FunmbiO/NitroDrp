@@ -24,8 +24,8 @@ public sealed class ShareService(
             throw ServiceException.BadRequest("too_many_files", $"A link can hold at most {lim.MaxFiles} files.");
         if (!lim.AllowedExpiryDays.Contains(req.ExpiresInDays))
             throw ServiceException.BadRequest("bad_expiry", "Choose one of the allowed expiry times.");
-        var downloadLimit = req.DownloadLimit ?? 0;
-        if (downloadLimit is < 0 or > MaxDownloadLimit)
+        var downloadLimit = req.DownloadLimit ?? 0; // no limit given means unlimited (stored as 0)
+        if (req.DownloadLimit is { } asked && asked is < 1 or > MaxDownloadLimit)
             throw ServiceException.BadRequest("bad_download_limit", $"Download limit must be between 1 and {MaxDownloadLimit}.");
         if (req.Password is { Length: > 256 })
             throw ServiceException.BadRequest("bad_password", "Password is too long.");
@@ -38,6 +38,7 @@ public sealed class ShareService(
 
         foreach (var (f, i) in req.Files.Select((f, i) => (f, i)))
         {
+            if (f is null) throw ServiceException.BadRequest("bad_filename", "A file has no usable name.");
             var name = FileNames.Sanitize(f.Name);
             if (name.Length == 0)
                 throw ServiceException.BadRequest("bad_filename", "A file has no usable name.");
@@ -240,11 +241,11 @@ public sealed class ShareService(
 
         var sentBefore = share.EmailsSent; // read before reserving: some stores hand back the live object
         var recipients = ParseRecipients(req.Recipients, cfg.MaxRecipientsPerRequest);
-        var message = string.IsNullOrWhiteSpace(req.Message) ? null : req.Message.Trim();
+        var message = TextSafety.Multiline(req.Message) is { Length: > 0 } cleaned ? cleaned : null;
         if (message is { Length: > 1000 })
             throw ServiceException.BadRequest("message_too_long", "Keep the message under 1,000 characters.");
         var replyTo = ParseOptionalAddress(req.SenderEmail);
-        var senderName = string.IsNullOrWhiteSpace(req.SenderName) ? _o.SenderName : ShareEmailComposer.OneLine(req.SenderName, 60);
+        var senderName = ShareEmailComposer.OneLine(req.SenderName ?? "", 60) is { Length: > 0 } typed ? typed : _o.SenderName;
 
         if (!await store.TryReserveEmailsAsync(token, recipients.Count, cfg.MaxRecipientsPerShare, ct))
             throw ServiceException.Conflict("email_limit", $"This link can email at most {cfg.MaxRecipientsPerShare} people in total.");
@@ -348,7 +349,8 @@ public sealed class ShareService(
         if (share.PasswordHash is null) return;
         if (string.IsNullOrEmpty(password))
             throw ServiceException.Unauthorized("password_required", "This link needs a password.");
-        if (!PasswordHasher.Verify(password, share.PasswordHash))
+        // Real passwords are capped at 256 characters when set, so anything longer can't match; skip the slow hash.
+        if (password.Length > 256 || !PasswordHasher.Verify(password, share.PasswordHash))
             throw ServiceException.Unauthorized("wrong_password", "That password isn't right.");
     }
 

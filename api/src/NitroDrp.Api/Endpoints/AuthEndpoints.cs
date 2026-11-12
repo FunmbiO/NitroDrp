@@ -81,7 +81,7 @@ public static class AuthEndpoints
         auth.MapDelete("/passkeys/{id}", async (string id, HttpRequest http, Sessions sessions, IPasskeyStore keys, CancellationToken ct) =>
         {
             _ = await sessions.GetAsync(http, ct) ?? throw SignInRequired();
-            if (!await keys.RemoveAsync(id, ct)) throw ServiceException.NotFound();
+            if (!Ids.IsCredentialId(id) || !await keys.RemoveAsync(id, ct)) throw ServiceException.NotFound();
             sessions.Forget(id); // that device is signed out now, not in a minute
             return Results.NoContent();
         }).RequireRateLimiting("auth");

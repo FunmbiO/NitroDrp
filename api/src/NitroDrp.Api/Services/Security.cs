@@ -15,6 +15,14 @@ public static class Ids
         return new string(chars);
     }
 
+    /// <summary>Is this shaped like a link token? Anything else can't exist, so it is refused before any lookup.</summary>
+    public static bool IsToken(string? s) => s is { Length: >= 8 and <= 32 } && s.All(char.IsAsciiLetterOrDigit);
+
+    public static bool IsFileId(string? s) => s is { Length: >= 8 and <= 32 } && s.All(char.IsAsciiHexDigitLower);
+
+    /// <summary>A passkey's credential id as it appears in an address: base64url.</summary>
+    public static bool IsCredentialId(string? s) => s is { Length: >= 1 and <= 1024 } && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
+
     public static string NewFileId() => Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
 
     /// <summary>256-bit secret, base64url.</summary>
@@ -74,7 +82,11 @@ public static class FileNames
         var n = raw.Replace('\\', '/');
         n = n[(n.LastIndexOf('/') + 1)..];
         var sb = new StringBuilder(n.Length);
-        foreach (var c in n) sb.Append(char.IsControl(c) || "<>:\"|?*".Contains(c) ? '_' : c);
+        foreach (var c in n)
+        {
+            if (TextSafety.IsSpoofing(c)) continue;
+            sb.Append(char.IsControl(c) || "<>:\"|?*".Contains(c) ? '_' : c);
+        }
         var s = sb.ToString().Trim().Trim('.');
         if (s.Length > 200)
         {

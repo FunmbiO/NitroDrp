@@ -125,7 +125,7 @@ public sealed class PasskeyService(IFido2 fido2, IPasskeyStore keys, TimeProvide
     /// <summary>What shows in the device list: trimmed, one line, short.</summary>
     internal static string CleanLabel(string? label)
     {
-        var s = new string((label ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
+        var s = NitroDrp.Api.Services.TextSafety.SingleLine(label);
         if (s.Length == 0) return "My device";
         return s.Length > 40 ? s[..40] : s;
     }
