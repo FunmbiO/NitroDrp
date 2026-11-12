@@ -15,6 +15,7 @@ services:
       NitroDrp__CloudFront__DistributionId: ${CLOUDFRONT_DISTRIBUTION_ID:-}
       NitroDrp__CloudFront__PrivateKeyPath: /run/secrets/cloudfront-private.pem
       NitroDrp__PublicBaseUrl: ${PUBLIC_BASE_URL:-}
+      NitroDrp__Auth__Passkeys: ${PASSKEYS_ENABLED:-false}
       NitroDrp__Email__Enabled: ${EMAIL_ENABLED:-false}
       NitroDrp__Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
       NitroDrp__Email__Region: ${EMAIL_REGION:-${AWS_REGION:-us-east-2}}

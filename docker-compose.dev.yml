@@ -20,6 +20,8 @@ services:
       NitroDrp__Dynamo__AccessKey: local
       NitroDrp__Dynamo__SecretKey: local
       NitroDrp__PublicBaseUrl: http://localhost:8080
+      NitroDrp__Auth__Passkeys: "true"
+      NitroDrp__Auth__ExtraOrigins__0: http://localhost:5173   # the Vite dev server, if you run it against this API
       NitroDrp__Email__Enabled: "true"
       NitroDrp__Email__FromAddress: transfers@dev.example
       NitroDrp__Email__ServiceUrl: http://s3:5000
