@@ -33,6 +33,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **One app on every device:** sign in with Face ID or a fingerprint (passkeys), and see the same links on your phone
   and laptop ([details](docs/AUTH.md)).
+- **Open any link by pasting it:** an "Open a link" page takes a pasted link, or just its code, to the download page.
 - **Private by design:** a shared access key to create links, a per-share owner key, PBKDF2 passwords, least-privilege
   AWS access, and rate limits that forged headers can't dodge.
 - **Infrastructure as code:** Terraform for everything on AWS, with state in its own versioned bucket and offline
