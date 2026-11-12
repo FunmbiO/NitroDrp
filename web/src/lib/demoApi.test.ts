@@ -118,3 +118,41 @@ describe('demo backend', () => {
     expect((await b.api.getShare(c.token)).downloadsRemaining).toBe(2)
   })
 })
+
+describe('demo: emailing a link (simulated)', () => {
+  async function ready() {
+    const b = make()
+    return { api: b.api, c: await publish(b, { size: 3 }) }
+  }
+
+  it('reports itself as simulated and sends to each unique address', async () => {
+    const { api, c } = await ready()
+    expect((await api.getConfig()).simulated).toBe(true)
+    const res = await api.sendEmail(c.token, c.ownerKey, { recipients: ['a@example.com', 'A@example.com', 'b@example.com'] })
+    expect(res.results.map((r) => r.email)).toEqual(['a@example.com', 'b@example.com'])
+    expect(res.remaining).toBe(18)
+  })
+
+  it('enforces the same rules as the server', async () => {
+    const { api, c } = await ready()
+    expect(await code(api.sendEmail(c.token, 'wrong', { recipients: ['a@example.com'] }))).toBe('bad_owner_key')
+    expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: ['nope'] }))).toBe('bad_email')
+    expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: [] }))).toBe('no_recipients')
+    expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: Array.from({ length: 11 }, (_, i) => `u${i}@example.com`) }))).toBe('too_many_recipients')
+    expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: ['a@example.com'], message: 'x'.repeat(1001) }))).toBe('message_too_long')
+  })
+
+  it('stops at the lifetime cap', async () => {
+    const { api, c } = await ready()
+    const batch = (n: number, k: number) => ({ recipients: Array.from({ length: n }, (_, i) => `u${k}-${i}@example.com`) })
+    await api.sendEmail(c.token, c.ownerKey, batch(10, 1))
+    await api.sendEmail(c.token, c.ownerKey, batch(10, 2))
+    expect(await code(api.sendEmail(c.token, c.ownerKey, batch(1, 3)))).toBe('email_limit')
+  })
+
+  it('refuses a link that is not live or has expired', async () => {
+    const { api, c } = await ready()
+    clock += 8 * 86_400_000
+    expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: ['a@example.com'] }))).toBe('expired')
+  })
+})

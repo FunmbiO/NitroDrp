@@ -23,6 +23,13 @@ export interface ShareView {
   fileCount: number
   files: { id: string; name: string; size: number }[] | null
 }
+export interface AppConfig { emailEnabled: boolean; maxRecipientsPerRequest: number; maxRecipientsPerShare: number
+  /** Only the browser demo sets this: nothing is really sent. */
+  simulated?: boolean
+}
+export interface EmailRequest { recipients: string[]; message?: string; senderName?: string; senderEmail?: string }
+export interface EmailResult { email: string; sent: boolean; error?: string | null }
+export interface EmailResponse { results: EmailResult[]; remaining: number }
 export interface DownloadLink { id: string; name: string; size: number; url: string }
 
 import { demo } from './demoInstance'
@@ -68,6 +75,10 @@ const realApi = {
 
   finalize: (token: string, ownerKey: string) => call<void>('POST', `/shares/${token}/finalize`, { headers: owner(ownerKey) }),
   deleteShare: (token: string, ownerKey: string) => call<void>('DELETE', `/shares/${token}`, { headers: owner(ownerKey) }),
+
+  getConfig: () => call<AppConfig>('GET', '/config'),
+  sendEmail: (token: string, ownerKey: string, body: EmailRequest) =>
+    call<EmailResponse>('POST', `/shares/${token}/email`, { body, headers: owner(ownerKey) }),
 
   getShare: (token: string) => call<ShareView>('GET', `/shares/${token}`),
   unlock: (token: string, password: string) => call<ShareView>('POST', `/shares/${token}/unlock`, { body: { password } }),

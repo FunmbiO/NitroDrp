@@ -8,9 +8,12 @@ import type { Api, CreateShareResponse, DownloadLink, ShareView, UploadStatus, Z
 import { ApiError } from './errors'
 import type { UploadedPart } from './upload'
 import { buildStoredZip } from './zip'
+import { MAX_MESSAGE, parseRecipients } from './email'
 
 const PART_SIZE = 16 * 1024 * 1024
 const DAY = 86_400_000
+const MAX_PER_REQUEST = 10
+const MAX_PER_SHARE = 20
 const BLOCKED = ['exe', 'bat', 'cmd', 'com', 'scr', 'msi', 'vbs', 'ps1', 'jar', 'dll']
 const STORAGE_KEY = 'nitrodrp.demo.v1'
 
@@ -30,6 +33,7 @@ interface DemoShare {
   password: string | null
   limit: number
   count: number
+  emailsSent?: number
   files: DemoFile[]
 }
 export interface DemoState {
@@ -180,6 +184,30 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
       if (s.files.some((f) => f.status !== 'Complete')) throw new ApiError(409, 'incomplete', "Some files haven't finished uploading.")
       s.status = 'Active'
       persist()
+    },
+
+    async getConfig() {
+      return { emailEnabled: true, maxRecipientsPerRequest: MAX_PER_REQUEST, maxRecipientsPerShare: MAX_PER_SHARE, simulated: true }
+    },
+
+    /** Same rules and error codes as the real endpoint, but no mail leaves the page. */
+    async sendEmail(token, ownerKey, req) {
+      const s = owned(token, ownerKey)
+      if (s.status !== 'Active') throw new ApiError(409, 'not_ready', 'Finish uploading before emailing the link.')
+      if (now() >= s.expiresAt) throw new ApiError(410, 'expired', 'This link has expired.')
+      const { valid, invalid } = parseRecipients(req.recipients.join(' '))
+      if (invalid.length) throw new ApiError(400, 'bad_email', `"${invalid[0]}" isn't a valid email address.`)
+      if (!valid.length) throw new ApiError(400, 'no_recipients', 'Add at least one email address.')
+      if (valid.length > MAX_PER_REQUEST) throw new ApiError(400, 'too_many_recipients', `Send to at most ${MAX_PER_REQUEST} people at a time.`)
+      if ((req.message ?? '').trim().length > MAX_MESSAGE) throw new ApiError(400, 'message_too_long', 'Keep the message under 1,000 characters.')
+      if (req.senderEmail?.trim() && parseRecipients(req.senderEmail).valid.length !== 1)
+        throw new ApiError(400, 'bad_email', 'Your email address isn\'t valid.')
+      const used = s.emailsSent ?? 0
+      if (used + valid.length > MAX_PER_SHARE)
+        throw new ApiError(409, 'email_limit', `This link can email at most ${MAX_PER_SHARE} people in total.`)
+      s.emailsSent = used + valid.length
+      persist()
+      return { results: valid.map((email) => ({ email, sent: true })), remaining: MAX_PER_SHARE - s.emailsSent }
     },
 
     async deleteShare(token, ownerKey) {
