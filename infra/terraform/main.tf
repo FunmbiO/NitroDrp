@@ -123,6 +123,19 @@ data "aws_iam_policy_document" "api" {
       resources = [aws_cloudfront_distribution.downloads[0].arn]
     }
   }
+  dynamic "statement" {
+    # Sending mail, from this one verified domain and nothing else. Only present when email is on.
+    for_each = var.enable_email ? [1] : []
+    content {
+      actions   = ["ses:SendEmail"]
+      resources = [aws_sesv2_email_identity.sender[0].arn]
+      condition {
+        test     = "StringLike"
+        variable = "ses:FromAddress"
+        values   = ["*@${var.email_domain}"]
+      }
+    }
+  }
   statement {
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchWriteItem"]
     resources = [aws_dynamodb_table.shares.arn]

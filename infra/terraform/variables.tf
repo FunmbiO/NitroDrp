@@ -52,3 +52,15 @@ variable "cloudfront_price_class" {
   type        = string
   default     = "PriceClass_100"
 }
+
+variable "enable_email" {
+  description = "Let the app email download links through Amazon SES. Creates the sending-domain identity and lets the API user send from it. Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "email_domain" {
+  description = "Domain mail is sent from, e.g. \"jadedmedia.ca\". Required when enable_email is true. Mail is sent as something@<this domain>."
+  type        = string
+  default     = ""
+}

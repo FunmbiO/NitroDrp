@@ -11,3 +11,7 @@ cloudfront_public_key_pem = <<-EOT
 ...
 -----END PUBLIC KEY-----
 EOT
+
+# Optional: email download links (Amazon SES). See docs/EMAIL.md.
+enable_email = false
+email_domain = "" # e.g. "jadedmedia.ca"
