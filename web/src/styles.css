@@ -189,3 +189,11 @@ textarea.input { resize: vertical; min-height: 44px; font: inherit; }
 @keyframes loader-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes boot-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
 @media (prefers-reduced-motion: reduce) { .pixel-loader { animation: none; } .dots::after { animation: none; content: '...'; } }
+
+/* "Email sent": the F1 animation covers the page for a few seconds */
+.email-sent { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: var(--bg); cursor: pointer; animation: email-sent-in 0.18s both; }
+.email-sent canvas { display: block; image-rendering: pixelated; border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--pink); max-width: 96vw; }
+.email-sent-hint { margin: 0; font: 13px var(--mono); color: var(--muted); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@keyframes email-sent-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .email-sent { animation: none; } }

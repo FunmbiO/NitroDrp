@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, ApiError, type AppConfig, type EmailResponse } from '../lib/api'
 import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
 import { parseRecipients } from '../lib/email'
+import { EmailSent } from '../celebrate/EmailSent'
 import { checkDownloadLimit, checkFiles, checkPassword, MAX_PASSWORD, MAX_SECRET } from '../lib/validate'
 import { formatBytes } from '../lib/format'
 import { matchFiles, sigOf } from '../lib/resume'
@@ -50,6 +51,9 @@ export function UploadPage() {
   const [error, setError] = useState('')
   const [pending, setPending] = useState<PendingUpload | null>(getPending)
   const [config, setConfig] = useState<AppConfig | null>(null)
+  // The "email sent" animation plays before the next page, and the upload waits for it to finish (or be skipped).
+  const [celebration, setCelebration] = useState<{ sent: number; total: number; done: () => void } | null>(null)
+  const celebrate = (sent: number, total: number) => new Promise<void>((resolve) => setCelebration({ sent, total, done: resolve }))
   const [useEmail, setUseEmail] = useState(false)
   const [draft, setDraft] = useState<EmailDraft>(emptyDraft)
   useEffect(() => {
@@ -195,6 +199,8 @@ export function UploadPage() {
           emailOutcome = { error: e instanceof Error ? e.message : 'The email could not be sent.' }
         }
       }
+      const delivered = emailOutcome?.response?.results.filter((r) => r.sent).length ?? 0
+      if (delivered > 0 && emailOutcome?.response) await celebrate(delivered, emailOutcome.response.results.length)
       nav(`/created/${token}`, { state: { emailOutcome } })
     } catch (err) {
       if (ctl.signal.aborted) return // the user cancelled; cancel() already cleaned up
@@ -364,6 +370,7 @@ export function UploadPage() {
           </div>
         </form>
       </div>
+      {celebration && <EmailSent sent={celebration.sent} total={celebration.total} onDone={celebration.done} />}
     </main>
   )
 }

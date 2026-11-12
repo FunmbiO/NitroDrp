@@ -4,6 +4,7 @@ import { api, type AppConfig, type EmailResponse, type EmailResult } from '../li
 import { useAuth } from '../lib/auth'
 import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
 import { parseRecipients } from '../lib/email'
+import { EmailSent } from '../celebrate/EmailSent'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { findRecent, removeRecent, type RecentShare } from '../lib/storage'
 import { CheckIcon } from '../components/Icons'
@@ -38,6 +39,7 @@ export function CreatedPage() {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<EmailDraft>(emptyDraft)
   const [sending, setSending] = useState(false)
+  const [celebration, setCelebration] = useState<{ sent: number; total: number } | null>(null)
   const [emailError, setEmailError] = useState(handedOver?.error ?? '')
   const [results, setResults] = useState<EmailResult[]>(handedOver?.response?.results ?? [])
   const [remaining, setRemaining] = useState<number | null>(handedOver?.response?.remaining ?? null)
@@ -83,6 +85,8 @@ export function CreatedPage() {
       })
       setResults((prev) => [...r.results, ...prev])
       setRemaining(r.remaining)
+      const delivered = r.results.filter((x) => x.sent).length
+      if (delivered > 0) setCelebration({ sent: delivered, total: r.results.length })
       // Keep the addresses that failed so they can be fixed and retried; clear the ones that went out.
       const failed = r.results.filter((x) => !x.sent).map((x) => x.email)
       setDraft((d) => ({ ...d, recipients: failed.join(', ') }))
@@ -167,6 +171,7 @@ export function CreatedPage() {
           <button type="button" className="link-btn" onClick={del}>Delete link now</button>
         </div>
       </div>
+      {celebration && <EmailSent sent={celebration.sent} total={celebration.total} onDone={() => setCelebration(null)} />}
     </main>
   )
 }
