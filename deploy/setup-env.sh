@@ -36,13 +36,25 @@ case "$V_SITE_ADDRESS" in
   *://*|*/*|*" "*) echo "Give just the hostname, like drop.example.com (no https://, slashes or spaces)." >&2; exit 1 ;;
 esac
 
+V_EMAIL_ENABLED=false V_EMAIL_FROM_ADDRESS="" V_PUBLIC_BASE_URL=""
+yn=$(ask "Email download links to recipients? Needs Amazon SES set up first, see docs/EMAIL.md (y/N)" "n")
+case "$yn" in
+  [yY]*)
+    V_EMAIL_ENABLED=true
+    V_EMAIL_FROM_ADDRESS=$(ask "Send mail from (an address at your verified domain, e.g. transfers@jadedmedia.ca)")
+    case "$V_EMAIL_FROM_ADDRESS" in *?@?*.?*) ;; *) echo "That doesn't look like an email address." >&2; exit 1 ;; esac
+    V_PUBLIC_BASE_URL=$(ask "Public address of this site, used for the links in emails" "${V_SITE_ADDRESS:+https://$V_SITE_ADDRESS}")
+    case "$V_PUBLIC_BASE_URL" in https://*|http://*) V_PUBLIC_BASE_URL=${V_PUBLIC_BASE_URL%/} ;; *) echo "Give the full address, like https://drop.example.com" >&2; exit 1 ;; esac
+    ;;
+esac
+
 if command -v openssl >/dev/null 2>&1; then
   V_API_KEY=$(openssl rand -hex 32)
 else
   V_API_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
 fi
 
-export V_SENDER_NAME V_AWS_REGION V_S3_BUCKET V_DYNAMO_TABLE V_AWS_ACCESS_KEY_ID V_AWS_SECRET_ACCESS_KEY V_SITE_ADDRESS V_API_KEY
+export V_SENDER_NAME V_AWS_REGION V_S3_BUCKET V_DYNAMO_TABLE V_AWS_ACCESS_KEY_ID V_AWS_SECRET_ACCESS_KEY V_SITE_ADDRESS V_API_KEY V_EMAIL_ENABLED V_EMAIL_FROM_ADDRESS V_PUBLIC_BASE_URL
 umask 077
 # Values go through the environment (not the command line or a sed expression), so characters like / + & | in
 # a secret can't break anything.
@@ -55,6 +67,9 @@ awk '
   /^AWS_ACCESS_KEY_ID=/      { print "AWS_ACCESS_KEY_ID=" ENVIRON["V_AWS_ACCESS_KEY_ID"]; next }
   /^AWS_SECRET_ACCESS_KEY=/  { print "AWS_SECRET_ACCESS_KEY=" ENVIRON["V_AWS_SECRET_ACCESS_KEY"]; next }
   /^# ?SITE_ADDRESS=/        { if (ENVIRON["V_SITE_ADDRESS"] != "") print "SITE_ADDRESS=" ENVIRON["V_SITE_ADDRESS"]; else print; next }
+  /^# ?EMAIL_ENABLED=/       { if (ENVIRON["V_EMAIL_ENABLED"] == "true") print "EMAIL_ENABLED=true"; else print; next }
+  /^# ?EMAIL_FROM_ADDRESS=/  { if (ENVIRON["V_EMAIL_ENABLED"] == "true") print "EMAIL_FROM_ADDRESS=" ENVIRON["V_EMAIL_FROM_ADDRESS"]; else print; next }
+  /^# ?PUBLIC_BASE_URL=/     { if (ENVIRON["V_EMAIL_ENABLED"] == "true") print "PUBLIC_BASE_URL=" ENVIRON["V_PUBLIC_BASE_URL"]; else print; next }
   { print }
 ' "$TEMPLATE" > "$OUT"
 chmod 600 "$OUT"
