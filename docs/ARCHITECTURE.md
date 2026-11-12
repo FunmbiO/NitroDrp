@@ -61,6 +61,8 @@ flowchart LR
 - **Two kinds of secret.** A shared *access key* (`API_KEY`) gates creating links, because this is a private
   instance. Each share gets its own 256-bit *owner key* (stored only as a SHA-256 hash) that authorises
   uploading, finalizing and deleting that share.
+- **Input handling.** Every text box has limits and a visible reason when it's wrong, the server re-checks all of it,
+  and malformed requests get a clean 4xx. See [SECURITY.md](SECURITY.md) for every input and the attacks covered.
 - **Passwords** are PBKDF2-SHA256 (210k iterations, per-hash salt). Password-protected links don't reveal their
   file names until unlocked.
 - **Least privilege.** The AWS user the API runs as can only touch this bucket, this table and, if CloudFront is

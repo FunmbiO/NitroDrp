@@ -51,6 +51,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 | [Deploying](docs/DEPLOY.md) | AWS and Terraform, `.env`, the three ways to expose it, CloudFront |
 | [Lightsail guide](docs/LIGHTSAIL.md) | Step by step: a small always-on server with automatic HTTPS |
 | [Terraform state](docs/TERRAFORM_STATE.md) | Keeping state in S3, moving to it, recovering |
+| [Security](docs/SECURITY.md) | Every input, its limits, and the attacks covered and how they're tested |
 | [Passkeys](docs/AUTH.md) | Signing in with Face ID or a fingerprint, one app across devices, removing a device |
 | [Phone app](docs/PHONE.md) | Installing NitroDrp on a phone's home screen and what to expect |
 | [Email](docs/EMAIL.md) | Emailing links with Amazon SES: setup, DKIM records, leaving the sandbox, limits |
@@ -76,7 +77,7 @@ Open http://localhost:8080 with the access key `dev-access-key-change-me`.
 ## Status
 
 Deployed and running: the API on a Lightsail server behind Caddy, S3 and DynamoDB, Terraform with remote state,
-S3-only downloads. Tested by 138 API tests, 45 web tests, a browser test of the demo, Terraform and script tests,
+S3-only downloads. Tested by 213 API tests, 97 web tests, a browser test of the demo, Terraform and script tests,
 and an end-to-end smoke test against the live site.
 
 Not yet exercised against real services: emailing links (it needs the SES setup in [docs/EMAIL.md](docs/EMAIL.md)), the
