@@ -23,7 +23,13 @@ export interface ShareView {
   fileCount: number
   files: { id: string; name: string; size: number }[] | null
 }
-export interface AppConfig { emailEnabled: boolean; maxRecipientsPerRequest: number; maxRecipientsPerShare: number
+/** What a link may hold, so the page can check files before uploading. Absent on an older server. */
+export interface AppConfigLimits { maxFiles: number; maxFileBytes: number; maxTotalBytes: number; blockedExtensions: string[]; expiryDays: number[] }
+export interface AppConfig {
+  emailEnabled: boolean
+  maxRecipientsPerRequest: number
+  maxRecipientsPerShare: number
+  limits?: AppConfigLimits
   /** Only the browser demo sets this: nothing is really sent. */
   simulated?: boolean
 }

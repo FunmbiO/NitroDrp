@@ -176,3 +176,7 @@ textarea.input { resize: vertical; min-height: 44px; font: inherit; }
 /* Sign-in and devices */
 .nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .tag { margin-left: 10px; padding: 2px 8px; border: 2px solid var(--lime); border-radius: 4px; color: var(--lime); font: 700 12px var(--mono); }
+
+/* Inline validation: the message sits right under the field it's about */
+.field-error { color: var(--pink); font: 700 13px var(--mono); }
+.input[aria-invalid='true'] { border-color: var(--pink); }

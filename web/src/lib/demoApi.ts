@@ -208,7 +208,10 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
     },
 
     async getConfig() {
-      return { emailEnabled: true, maxRecipientsPerRequest: MAX_PER_REQUEST, maxRecipientsPerShare: MAX_PER_SHARE, simulated: true }
+      return {
+        emailEnabled: true, maxRecipientsPerRequest: MAX_PER_REQUEST, maxRecipientsPerShare: MAX_PER_SHARE, simulated: true,
+        limits: { maxFiles: 100, maxFileBytes: 20 * 1024 ** 3, maxTotalBytes: 50 * 1024 ** 3, blockedExtensions: BLOCKED, expiryDays: [1, 7, 30] },
+      }
     },
 
     /** Same rules and error codes as the real endpoint, but no mail leaves the page. */

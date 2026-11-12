@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { MAX_SECRET } from '../lib/validate'
 import { createPasskey, getPasskey, passkeyErrorMessage, passkeysSupported } from '../lib/passkeys'
 
 /** A sensible default name for the passkey, so the device list reads "Amina's iPhone"-style, not "Device 3". */
@@ -82,7 +83,7 @@ export function SignInPage() {
             </p>
             <div className="field">
               <label htmlFor="si-key">Access key</label>
-              <input id="si-key" className="input" type="password" autoComplete="current-password" disabled={busy} value={accessKey} onChange={(e) => setAccessKey(e.target.value)} />
+              <input id="si-key" className="input" type="password" autoComplete="current-password" maxLength={MAX_SECRET} disabled={busy} value={accessKey} onChange={(e) => setAccessKey(e.target.value)} />
             </div>
             <div className="field">
               <label htmlFor="si-name">Name this device</label>

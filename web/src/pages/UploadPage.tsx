@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, ApiError, type AppConfig, type EmailResponse } from '../lib/api'
 import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
 import { parseRecipients } from '../lib/email'
+import { checkDownloadLimit, checkFiles, checkPassword, MAX_PASSWORD, MAX_SECRET } from '../lib/validate'
 import { formatBytes } from '../lib/format'
 import { matchFiles, sigOf } from '../lib/resume'
 import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
@@ -55,6 +56,11 @@ export function UploadPage() {
     // Email is optional on the server; the section only shows when it is set up. A failed lookup just hides it.
     api.getConfig().then(setConfig, () => setConfig(null))
   }, [])
+  const [pwTouched, setPwTouched] = useState(false)
+  const limitCheck = checkDownloadLimit(limit)
+  const pwError = usePw ? checkPassword(password, pwTouched || password.length > 0) : ''
+  const fileChecks = checkFiles(items.map((i) => ({ name: i.file.name, size: i.file.size })), config?.limits)
+  const fileProblem = fileChecks.general !== '' || fileChecks.perFile.some((p) => p !== '')
   const emailing = useEmail && !!config?.emailEnabled
   const emailProblem = emailing
     ? parseRecipients(draft.recipients).valid.length === 0
@@ -124,7 +130,7 @@ export function UploadPage() {
           files: items.map((i) => ({ name: i.file.name, size: i.file.size, contentType: i.file.type || 'application/octet-stream' })),
           expiresInDays: days,
           password: usePw && password ? password : undefined,
-          downloadLimit: limit ? Number(limit) : undefined,
+          downloadLimit: limitCheck.value,
         })
         ;({ token, ownerKey, expiresAt, partSize } = created)
         plans = created.files.map((f) => ({ id: f.id, size: f.size, partCount: f.partCount, complete: false, parts: [] }))
@@ -208,7 +214,7 @@ export function UploadPage() {
     await discardPending()
   }
 
-  const canSend = items.length > 0 && !busy && (signedIn || apiKey.trim().length > 0) && (resuming || !usePw || password.length > 0) && !emailProblem
+  const canSend = items.length > 0 && !busy && (signedIn || apiKey.trim().length > 0) && (resuming || !usePw || password.length > 0) && !emailProblem && !limitCheck.error && !pwError && !fileProblem
 
   return (
     <main className="page">
@@ -271,6 +277,7 @@ export function UploadPage() {
                           <span className="meta">{formatBytes(it.file.size)}{active ? ` · ${pct}%` : ''}</span>
                         )}
                       </div>
+                      {fileChecks.perFile[i] && <span className="field-error" role="alert">{fileChecks.perFile[i]}</span>}
                       {active && (
                         <div className="bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Uploading ${it.file.name}`}>
                           <div style={{ width: `${pct}%` }} />
@@ -285,6 +292,7 @@ export function UploadPage() {
               })}
             </div>
           )}
+          {fileChecks.general && <p className="error" role="alert">{fileChecks.general}</p>}
         </div>
 
         <form className="card pad side" onSubmit={(e) => { e.preventDefault(); if (canSend) void send() }}>
@@ -307,14 +315,16 @@ export function UploadPage() {
             {usePw && (
               <div className="field">
                 <label htmlFor="pw" className="muted" style={{ fontWeight: 400, fontSize: 14 }}>Password</label>
-                <input id="pw" className="input" type="password" autoComplete="new-password" disabled={locked} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input id="pw" className="input" type="password" autoComplete="new-password" maxLength={MAX_PASSWORD} aria-invalid={!!pwError} aria-describedby={pwError ? 'pw-err' : undefined} disabled={locked} value={password} onBlur={() => setPwTouched(true)} onChange={(e) => setPassword(e.target.value)} />
+                {pwError && <span id="pw-err" className="field-error" role="alert">{pwError}</span>}
               </div>
             )}
           </div>
 
           <div className="field">
             <label htmlFor="limit">Download limit</label>
-            <input id="limit" className="input" type="number" min={1} max={10000} placeholder="Unlimited" disabled={locked} value={limit} onChange={(e) => setLimit(e.target.value)} />
+            <input id="limit" className="input" type="text" inputMode="numeric" autoComplete="off" maxLength={6} placeholder="Unlimited" aria-invalid={!!limitCheck.error} aria-describedby={limitCheck.error ? 'limit-err' : undefined} disabled={locked} value={limit} onChange={(e) => setLimit(e.target.value)} />
+            {limitCheck.error && <span id="limit-err" className="field-error" role="alert">{limitCheck.error}</span>}
           </div>
 
           {config?.emailEnabled && (
@@ -335,7 +345,7 @@ export function UploadPage() {
           {!DEMO && !signedIn && (
             <div className="field">
               <label htmlFor="key">Access key</label>
-              <input id="key" className="input" type="password" autoComplete="current-password" placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
+              <input id="key" className="input" type="password" autoComplete="current-password" maxLength={MAX_SECRET} placeholder="Set in the server's .env" value={apiKey} onChange={(e) => setKey(e.target.value)} />
             </div>
           )}
 

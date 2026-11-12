@@ -1,4 +1,5 @@
 import { MAX_MESSAGE, parseRecipients } from '../lib/email'
+import { MAX_RECIPIENT_TEXT } from '../lib/validate'
 
 export interface EmailDraft {
   recipients: string
@@ -41,6 +42,8 @@ export function EmailFields({ draft, onChange, idPrefix, maxPerRequest, disabled
           placeholder="name@example.com, another@example.com"
           autoComplete="off"
           spellCheck={false}
+          maxLength={MAX_RECIPIENT_TEXT}
+          aria-invalid={!!problem}
           disabled={disabled}
           value={draft.recipients}
           onChange={(e) => set({ recipients: e.target.value })}
@@ -57,12 +60,13 @@ export function EmailFields({ draft, onChange, idPrefix, maxPerRequest, disabled
         </div>
         <div className="field">
           <label htmlFor={`${idPrefix}-from`}>Your email (for replies)</label>
-          <input id={`${idPrefix}-from`} className="input" type="email" autoComplete="email" disabled={disabled} value={draft.senderEmail} onChange={(e) => set({ senderEmail: e.target.value })} />
+          <input id={`${idPrefix}-from`} className="input" type="email" autoComplete="email" maxLength={254} disabled={disabled} value={draft.senderEmail} onChange={(e) => set({ senderEmail: e.target.value })} />
         </div>
       </div>
       <div className="field">
         <label htmlFor={`${idPrefix}-msg`}>Message <span className="muted" style={{ fontWeight: 400 }}>(optional)</span></label>
         <textarea id={`${idPrefix}-msg`} className="input" rows={3} maxLength={MAX_MESSAGE} disabled={disabled} value={draft.message} onChange={(e) => set({ message: e.target.value })} />
+        <span className="hint" aria-live="off" style={{ textAlign: 'right' }}>{draft.message.length} / {MAX_MESSAGE}</span>
       </div>
       <p className="hint" style={{ margin: 0 }}>The email contains the link, never the password. If you set a password, tell them separately.</p>
     </div>

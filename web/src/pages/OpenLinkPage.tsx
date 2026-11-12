@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { parseLink } from '../lib/link'
+import { MAX_LINK_TEXT } from '../lib/validate'
 
 /** Paste a link someone sent (or one you made) and go straight to its download page. */
 export function OpenLinkPage() {
@@ -54,6 +55,7 @@ export function OpenLinkPage() {
               autoCorrect="off"
               autoComplete="off"
               spellCheck={false}
+              maxLength={MAX_LINK_TEXT}
               placeholder="https://drop.jadedmedia.ca/d/…"
               value={text}
               onChange={(e) => {

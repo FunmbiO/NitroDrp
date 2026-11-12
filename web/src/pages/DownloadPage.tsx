@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, type ShareView } from '../lib/api'
 import { formatBytes, formatExpiry } from '../lib/format'
+import { MAX_PASSWORD } from '../lib/validate'
 import { DownloadIcon } from '../components/Icons'
 
 type State =
@@ -128,7 +129,7 @@ export function DownloadPage() {
           <form className="stack" onSubmit={unlock}>
             <div className="field">
               <label htmlFor="pw">Password</label>
-              <input id="pw" className="input big" type="password" autoFocus autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input id="pw" className="input big" type="password" autoFocus autoComplete="off" maxLength={MAX_PASSWORD} value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {error && <p className="error" role="alert">{error}</p>}
             <button type="submit" className="btn big" disabled={busy || !password}>Unlock files</button>
