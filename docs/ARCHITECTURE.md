@@ -68,6 +68,9 @@ flowchart LR
   `X-Caddy-Client-IP` for Caddy, which also strips any `CF-Connecting-IP` a visitor sends. The web container
   publishes on `127.0.0.1` only, so nobody can bypass the proxy. `dev/ratelimit-check.py` proves this against a
   live site.
+- **Email** (optional) is sent from the server's own domain with the sender as Reply-To; only the owner key can
+  trigger it, recipients must be plain addresses, a per-link lifetime cap is enforced by one conditional write, and the
+  password is never included ([EMAIL.md](EMAIL.md)). The IAM user may send only from the verified domain.
 - **Terraform state** is kept in its own private, versioned, encrypted bucket with locking
   ([TERRAFORM_STATE.md](TERRAFORM_STATE.md)).
 
@@ -82,6 +85,8 @@ flowchart LR
 | POST | `/api/shares/{token}/finalize` | `X-Owner-Key` | Verify sizes in S3 and make the link live |
 | DELETE | `/api/shares/{token}` | `X-Owner-Key` | Delete files and metadata now |
 | GET | `/api/shares/{token}` | none | Public metadata |
+| GET | `/api/config` | none | Whether email is available, and its limits (the page hides the email options if not) |
+| POST | `/api/shares/{token}/email` | `X-Owner-Key` | Email the link to up to 10 addresses; per-recipient results and remaining allowance |
 | POST | `/api/shares/{token}/unlock` | password | File list for protected links |
 | POST | `/api/shares/{token}/zip-link` | password | Count a download, return a signed URL for the zip |
 | GET | `/api/shares/{token}/zip` | signed URL | Stream all files as one .zip |

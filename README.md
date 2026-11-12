@@ -25,13 +25,15 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 - **Optional password and download limit**, with the limit enforced by one conditional write, so concurrent
   downloads can't exceed it.
 - **"Download all" as a streamed .zip** (ZIP64, flat memory), verified with a 4.8 GB archive.
+- **Send the link by email** (optional, Amazon SES): type recipients on the upload page or later, with a note.
+  The sender gets the replies, the password is never emailed, and each link has a lifetime cap.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **Private by design:** a shared access key to create links, a per-share owner key, PBKDF2 passwords, least-privilege
   AWS access, and rate limits that forged headers can't dodge.
 - **Infrastructure as code:** Terraform for everything on AWS, with state in its own versioned bucket and offline
   tests; Docker Compose for the app; reproducible, pinned builds; CI for the API, web, demo, scripts and Terraform.
 
-**Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · DynamoDB · CloudFront
+**Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · DynamoDB · SES (optional) · CloudFront
 (optional) · Terraform · Docker Compose · Caddy or Cloudflare Tunnel · AWS Lightsail.
 
 ## Docs
@@ -43,6 +45,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 | [Deploying](docs/DEPLOY.md) | AWS and Terraform, `.env`, the three ways to expose it, CloudFront |
 | [Lightsail guide](docs/LIGHTSAIL.md) | Step by step: a small always-on server with automatic HTTPS |
 | [Terraform state](docs/TERRAFORM_STATE.md) | Keeping state in S3, moving to it, recovering |
+| [Email](docs/EMAIL.md) | Emailing links with Amazon SES: setup, DKIM records, leaving the sandbox, limits |
 | [The demo](docs/DEMO.md) | The in-browser demo, deploying it on Vercel, embedding it |
 
 ## Try it
@@ -65,11 +68,11 @@ Open http://localhost:8080 with the access key `dev-access-key-change-me`.
 ## Status
 
 Deployed and running: the API on a Lightsail server behind Caddy, S3 and DynamoDB, Terraform with remote state,
-S3-only downloads. Tested by 55 API tests, 23 web tests, a browser test of the demo, Terraform and script tests,
+S3-only downloads. Tested by 101 API tests, 45 web tests, a browser test of the demo, Terraform and script tests,
 and an end-to-end smoke test against the live site.
 
-Not yet exercised against real services: the CloudFront path (AWS is verifying the account) and the Cloudflare
-Tunnel option.
+Not yet exercised against real services: emailing links (it needs the SES setup in [docs/EMAIL.md](docs/EMAIL.md)), the
+CloudFront path (AWS is verifying the account) and the Cloudflare Tunnel option.
 
 Next: zips are streamed through the server, so heavy use would want a Lambda that zips next to S3.
 
