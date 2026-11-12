@@ -85,13 +85,13 @@ export function puffs(t: number): Puff[] {
 /** Speed lines streaking back from the car once it is under way. */
 export const speedLinesOn = (t: number) => t >= T_LAUNCH + 0.05 && t < T_EXIT
 
-/** The words: when they appear, and how big they are as they pop in (1 is full size). */
+/** The words: when they appear, and a little bounce as they land (pixels down, then up, then at rest). */
 export const textFrom = T_TEXT_BASE
 export const textVisible = (t: number) => t >= textFrom
-export function textPop(t: number): number {
+export function textBounce(t: number): number {
   const age = t - textFrom
   if (age < 0) return 0
-  return age < 0.08 ? 0.5 : age < 0.16 ? 1.25 : 1
+  return age < 0.08 ? 6 : age < 0.16 ? -3 : 0
 }
 
 /** What the words say. Everyone sent: "EMAIL SENT". Otherwise how many got it. */

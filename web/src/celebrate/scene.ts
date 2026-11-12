@@ -2,7 +2,7 @@ import { createBackdrop, rng, spriteCanvas } from '../loader/backdrop'
 import { GLYPH_ADVANCE, textPixels, textWidth } from '../loader/font'
 import { H, ROAD_Y, W } from '../loader/timeline'
 import { ENVELOPE, F1, F1_BODY, F1_FRONT_WHEEL, F1_REAR_WHEEL, PALETTE, bigFlame, puff } from './f1'
-import { CAR_TOP, carX, flameLength, lights, puffs, shake, speedLinesOn, textPop, textVisible } from './timeline'
+import { CAR_TOP, carX, flameLength, lights, puffs, shake, speedLinesOn, textBounce, textVisible } from './timeline'
 
 type Ctx = CanvasRenderingContext2D
 
@@ -104,12 +104,11 @@ export function createEmailScene(): EmailScene {
 
     // the words, popping in with the envelope
     if (textVisible(t)) {
-      const pop = textPop(t)
-      const k = label.length * GLYPH_ADVANCE * 2 > 150 ? 1 : 2
-      const kk = pop > 1 ? k + 1 : pop < 1 ? Math.max(1, k - 1) : k
+      const drop = textBounce(t)
+      const k = label.length * GLYPH_ADVANCE * 2 > 150 ? 1 : 2 // as big as fits
       const bob = Math.round(Math.sin(t * 9) * 1.5)
-      g.drawImage(envelope, Math.round(W / 2 - 8) - (kk > k ? 0 : 0), 20 + bob)
-      bigText(g, label, W / 2, 40, kk, '#c6f432')
+      g.drawImage(envelope, Math.round(W / 2 - 8), 20 + bob + drop)
+      bigText(g, label, W / 2, 40 + drop, k, '#c6f432')
       // a little shine
       if (tick % 8 < 3) px(g, '#ffffff', 99, 24 + bob, 1, 3)
     }
