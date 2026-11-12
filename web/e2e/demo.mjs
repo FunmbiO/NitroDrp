@@ -193,6 +193,7 @@ try {
   await r.goto(`${BASE}/d/expired00000`)
   await r.waitForSelector('text=gone')
   ok(true, 'expired example shows the "gone" page')
+  ok(await r.locator('a[href="/open"]').isVisible(), 'the gone page offers to try a different link')
 
   // branding footer: text, link and logo on a page recipients see
   await r.goto(`${BASE}/d/demo1234abcd`)

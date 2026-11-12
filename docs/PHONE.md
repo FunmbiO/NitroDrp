@@ -28,6 +28,12 @@ The demo site is installable the same way.
   time). To force it, close the app fully and reopen it.
 - **Remove it:** press and hold the icon, then remove it like any app.
 
+## Opening a link someone sent you
+
+**Open a link** in the menu (and in the app icon's long-press menu on Android) takes a pasted link straight to its
+download page. Paste the whole link, or just the code at its end; a link inside a message works too. It's the same
+page the recipient sees, so you can check what you sent. This page needs no sign-in.
+
 ## What the offline copy contains
 
 Only the app's own files: the page, scripts, styles and icons (`web/public/sw.js`). It never stores anything from

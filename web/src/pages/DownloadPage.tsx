@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, type ShareView } from '../lib/api'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { DownloadIcon } from '../components/Icons'
@@ -42,6 +42,7 @@ export function DownloadPage() {
         <div className="card roomy">
           <h1 className="sm">This link is <mark>gone</mark></h1>
           <p className="muted" style={{ margin: 0 }}>{state.message} Ask the sender for a new one.</p>
+          <p style={{ margin: '16px 0 0' }}><Link to="/open">Pasted the wrong link? Try another</Link></p>
         </div>
       </main>
     )
