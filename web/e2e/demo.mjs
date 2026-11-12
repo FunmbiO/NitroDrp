@@ -270,6 +270,55 @@ try {
   ok((await v.textContent('[role=alert]')).includes("isn't right"), 'an injection-style password is just a wrong password')
   await v.close()
 
+  // loading screen: while the app's main script is still downloading, the page shows the animation, not a blank
+  const bootSnap = (page) => page.evaluate(() => {
+    const c = document.querySelector('#boot canvas')
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+    const colours = new Set()
+    let hash = 0
+    for (let i = 0; i < d.length; i += 4) {
+      colours.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+      hash = (hash * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) | 0
+    }
+    return { colours: colours.size, hash }
+  })
+  const slowLoad = async (options) => {
+    const ctx = await browser.newContext({ viewport: { width: 900, height: 700 }, ...options })
+    const pg = await ctx.newPage()
+    const errs = []
+    pg.on('pageerror', (e) => errs.push(e.message))
+    await pg.route('**/assets/index-*.js', async (route) => {
+      await new Promise((r) => setTimeout(r, 2500))
+      await route.continue()
+    })
+    await pg.goto(`${BASE}/`, { waitUntil: 'commit' })
+    return { ctx, pg, errs }
+  }
+
+  const live = await slowLoad({})
+  await live.pg.waitForSelector('#boot canvas', { state: 'visible' })
+  await live.pg.waitForTimeout(500)
+  const a1 = await bootSnap(live.pg)
+  await live.pg.waitForTimeout(430)
+  const a2 = await bootSnap(live.pg)
+  ok(a1.colours > 25, `before the app has loaded, the page already shows a drawn scene (${a1.colours} colours, not a blank page)`)
+  ok(a1.hash !== a2.hash, 'and it is animating')
+  ok((await live.pg.textContent('#boot')).toLowerCase().includes('loading'), 'with the word "Loading" for screen readers')
+  ok(await live.pg.evaluate(() => getComputedStyle(document.body).backgroundColor === 'rgb(10, 10, 10)'), 'the background is dark from the first frame (no white flash)')
+  await live.pg.waitForSelector('text=Create link', { timeout: 20_000 })
+  ok((await live.pg.locator('#boot').count()) === 0, 'once the app has loaded, the loading screen is gone')
+  ok(live.errs.length === 0, `no errors from the loading screen${live.errs.length ? ': ' + live.errs.join(' | ') : ''}`)
+  await live.ctx.close()
+
+  const calm = await slowLoad({ reducedMotion: 'reduce' })
+  await calm.pg.waitForSelector('#boot canvas', { state: 'visible' })
+  await calm.pg.waitForTimeout(500)
+  const c1 = await bootSnap(calm.pg)
+  await calm.pg.waitForTimeout(430)
+  const c2 = await bootSnap(calm.pg)
+  ok(c1.colours > 25 && c1.hash === c2.hash, 'with "reduce motion" on, it shows a still picture instead of animating')
+  await calm.ctx.close()
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')
