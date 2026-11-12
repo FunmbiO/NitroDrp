@@ -32,6 +32,8 @@ does. So every request is judged by the server, whatever the page showed:
 - `AnonymousAccessTests` takes **every route the API has** and tries it as nobody, with a wrong access key, a wrong
   owner key, and a forged sign-in cookie. Only the short public list may answer with success (health, the page's
   public settings, "am I signed in", starting a sign-in and signing out). A route added without a check fails the test.
+- Anyone who isn't signed in sees a friendly welcome page with a link to the demo, never the app or a sign-in form.
+  That is for tidiness: it hides nothing the server wasn't already protecting. The owner signs in at `/owner`.
 - The sign-in screen's "use the access key" option asks the server to check the key before the app opens, and a
   browser-side flag can't open it. The browser test sets such flags by hand to prove it.
 
