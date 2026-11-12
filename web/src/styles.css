@@ -143,3 +143,9 @@ html[data-embed] h1 { font-size: 32px; }
 .footer-logo:hover { opacity: 1; }
 .footer-logo img { display: block; width: 56px; height: auto; }
 @media (max-width: 600px) { .site-footer { padding-inline: 20px; flex-direction: column; gap: 10px; } }
+
+/* keep the footer at the bottom of short pages (the page's children are direct children of #root) */
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+.header, .page, .site-footer { width: 100%; }
+.page { flex: 1 0 auto; }
+html[data-embed] #root { min-height: 0; } /* an embedded page must be able to shrink to its content */
