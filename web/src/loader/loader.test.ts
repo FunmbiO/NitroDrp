@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GLYPH_ADVANCE, textPixels, textWidth } from './font'
+import { SPLASH_MS, splashMs, splashRemaining } from './splash'
 import {
   BOTTLE, CAR, FLAME_A, FLAME_B, FLAME_C, MINI_LIT, MINI_OFF, PALETTE, PUFF, RAMP, SPARKLE, WHEEL_A, WHEEL_AT, WHEEL_B,
 } from './sprites'
@@ -171,3 +172,42 @@ describe('the timeline', () => {
     expect(loopTime(0)).toBe(0)
   })
 })
+
+describe('how long the first loading screen stays up', () => {
+  const normal = { search: '', automated: false, embedded: false, reducedMotion: false }
+
+  it('waits the full splash time for an ordinary visit', () => {
+    expect(splashMs(normal)).toBe(SPLASH_MS)
+  })
+
+  it('long enough to see the first NOS grab and the boost, and not absurdly long', () => {
+    expect(SPLASH_MS).toBeGreaterThanOrEqual(2200)
+    expect(SPLASH_MS).toBeLessThanOrEqual(4000)
+    expect(SPLASH_MS / 1000).toBeGreaterThan(T_PICKUP_1 + 0.5)
+  })
+
+  it('does not hold up tests, embedded pages, or people who asked for less motion', () => {
+    expect(splashMs({ ...normal, automated: true })).toBe(0)
+    expect(splashMs({ ...normal, embedded: true })).toBe(0)
+    expect(splashMs({ ...normal, reducedMotion: true })).toBe(0)
+  })
+
+  it('can be set from the address, for trying other lengths', () => {
+    expect(splashMs({ ...normal, search: '?splash=1500' })).toBe(1500)
+    expect(splashMs({ ...normal, search: '?x=1&splash=0' })).toBe(0)
+    expect(splashMs({ ...normal, automated: true, search: '?splash=2000' })).toBe(2000) // an explicit ask wins
+  })
+
+  it('ignores junk in that setting', () => {
+    for (const bad of ['?splash=abc', '?splash=-5', '?splash=1e9', '?splash=', '?splash=999999', '?splash=2.5'])
+      expect(splashMs({ ...normal, search: bad })).toBe(SPLASH_MS)
+  })
+
+  it('only waits for what is left: a slow load gets no extra delay', () => {
+    expect(splashRemaining(3000, 400)).toBe(2600)
+    expect(splashRemaining(3000, 3000)).toBe(0)
+    expect(splashRemaining(3000, 9000)).toBe(0)
+    expect(splashRemaining(0, 100)).toBe(0)
+  })
+})
+
