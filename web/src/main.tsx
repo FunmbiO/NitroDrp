@@ -6,6 +6,7 @@ import { UploadPage } from './pages/UploadPage'
 import { CreatedPage } from './pages/CreatedPage'
 import { RecentPage } from './pages/RecentPage'
 import { DownloadPage } from './pages/DownloadPage'
+import { EMBED } from './lib/config'
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -23,3 +24,12 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Lets the installed app open offline and load fast. Production builds only, and never inside an embed.
+if ('serviceWorker' in navigator && import.meta.env.PROD && !EMBED) {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* no service worker (private mode, blocked): the site works exactly as before */
+    })
+  })
+}
