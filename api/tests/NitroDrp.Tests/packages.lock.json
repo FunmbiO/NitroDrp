@@ -69,6 +69,14 @@
           "AWSSDK.Core": "[3.7.501.1, 4.0.0)"
         }
       },
+      "AWSSDK.SimpleEmailV2": {
+        "type": "Transitive",
+        "resolved": "3.7.509.10",
+        "contentHash": "jV3pG25ebIIYGG61UhtzJhyclSaVZYAilZPdeK8BSYiKr/BpWlyiVkgNq3CN3Twq+pjJqoSFl95boRuDLmTFpQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[3.7.501.1, 4.0.0)"
+        }
+      },
       "Microsoft.AspNetCore.TestHost": {
         "type": "Transitive",
         "resolved": "10.0.15",
@@ -432,7 +440,8 @@
         "dependencies": {
           "AWSSDK.CloudFront": "[3.7.510.21, )",
           "AWSSDK.DynamoDBv2": "[3.7.513.4, )",
-          "AWSSDK.S3": "[3.7.511.8, )"
+          "AWSSDK.S3": "[3.7.511.8, )",
+          "AWSSDK.SimpleEmailV2": "[3.7.509.10, )"
         }
       }
     }

@@ -29,6 +29,15 @@
           "AWSSDK.Core": "[3.7.501.1, 4.0.0)"
         }
       },
+      "AWSSDK.SimpleEmailV2": {
+        "type": "Direct",
+        "requested": "[3.7.509.10, )",
+        "resolved": "3.7.509.10",
+        "contentHash": "jV3pG25ebIIYGG61UhtzJhyclSaVZYAilZPdeK8BSYiKr/BpWlyiVkgNq3CN3Twq+pjJqoSFl95boRuDLmTFpQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[3.7.501.1, 4.0.0)"
+        }
+      },
       "AWSSDK.Core": {
         "type": "Transitive",
         "resolved": "3.7.501.1",

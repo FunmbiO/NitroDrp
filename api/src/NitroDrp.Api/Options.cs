@@ -8,10 +8,44 @@ public sealed class NitroDrpOptions
     /// <summary>Shared secret the sender UI sends in X-Api-Key to create shares.</summary>
     public string ApiKey { get; set; } = "";
 
+    /// <summary>
+    /// The address visitors use, e.g. https://drop.example.com. Links in emails are built from it. Required when
+    /// email is enabled.
+    /// </summary>
+    public string? PublicBaseUrl { get; set; }
+
+    public EmailOptions Email { get; set; } = new();
     public S3Options S3 { get; set; } = new();
     public CloudFrontOptions CloudFront { get; set; } = new();
     public DynamoOptions Dynamo { get; set; } = new();
     public LimitOptions Limits { get; set; } = new();
+}
+
+/// <summary>Optional: email the download link to people, in addition to copying it. Uses Amazon SES.</summary>
+public sealed class EmailOptions
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>The sender, on a domain verified in SES, e.g. transfers@jadedmedia.ca.</summary>
+    public string? FromAddress { get; set; }
+
+    public string Region { get; set; } = "us-east-2";
+
+    /// <summary>Set for an SES-compatible emulator (moto). Leave empty for real AWS.</summary>
+    public string? ServiceUrl { get; set; }
+
+    public string? AccessKey { get; set; }
+    public string? SecretKey { get; set; }
+    public string? ConfigurationSet { get; set; }
+
+    /// <summary>Dev only: register the sender's domain with the emulator at startup. In AWS, Terraform does it.</summary>
+    public bool AutoCreateIdentity { get; set; }
+
+    /// <summary>Most recipients in one request.</summary>
+    public int MaxRecipientsPerRequest { get; set; } = 10;
+
+    /// <summary>Most emails one link can ever send, so a single link can't be used to spam.</summary>
+    public int MaxRecipientsPerShare { get; set; } = 20;
 }
 
 public sealed class S3Options

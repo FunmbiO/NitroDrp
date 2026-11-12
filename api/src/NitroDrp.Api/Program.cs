@@ -4,6 +4,7 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using NitroDrp.Api;
+using NitroDrp.Api.Email;
 using NitroDrp.Api.Endpoints;
 using NitroDrp.Api.Services;
 using NitroDrp.Api.Storage;
@@ -44,6 +45,19 @@ if (opts.CloudFront.Enabled && !string.IsNullOrWhiteSpace(opts.CloudFront.Distri
     builder.Services.AddSingleton<IEdgeCache>(new CloudFrontEdgeCache(new Amazon.CloudFront.AmazonCloudFrontClient(), opts.CloudFront.DistributionId));
 else
     builder.Services.AddSingleton<IEdgeCache, NoEdgeCache>();
+if (opts.Email.Enabled)
+{
+    if (string.IsNullOrWhiteSpace(opts.Email.FromAddress) || !opts.Email.FromAddress.Contains('@'))
+        throw new InvalidOperationException("NitroDrp:Email:FromAddress must be set (e.g. transfers@example.com) when email is enabled.");
+    if (!Uri.TryCreate(opts.PublicBaseUrl, UriKind.Absolute, out _))
+        throw new InvalidOperationException("NitroDrp:PublicBaseUrl must be set (e.g. https://drop.example.com) when email is enabled.");
+    builder.Services.AddSingleton(new SesEmailSender(SesEmailSender.CreateClient(opts.Email), opts.Email));
+    builder.Services.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<SesEmailSender>());
+}
+else
+{
+    builder.Services.AddSingleton<IEmailSender, NoEmailSender>();
+}
 builder.Services.AddSingleton(ZipLinks.FromApiKey(opts.ApiKey, TimeProvider.System));
 builder.Services.AddSingleton(new ZipGate(Math.Max(1, opts.Limits.MaxConcurrentZips)));
 builder.Services.AddSingleton<ShareService>();
