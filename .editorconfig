@@ -16,7 +16,8 @@ indent_size = 4
 indent_size = 2
 
 [*.md]
-trim_trailing_whitespace = false # two trailing spaces are a line break in Markdown
+# two trailing spaces are a line break in Markdown, so don't trim them
+trim_trailing_whitespace = false
 
 [*.sln]
 indent_style = tab
