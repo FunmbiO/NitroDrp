@@ -31,6 +31,8 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
   The sender gets the replies, the password is never emailed, and each link has a lifetime cap.
 - **Installs on a phone** as a home-screen app (a PWA): full screen, its own icon, opens offline.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
+- **One app on every device:** sign in with Face ID or a fingerprint (passkeys), and see the same links on your phone
+  and laptop ([details](docs/AUTH.md)).
 - **Private by design:** a shared access key to create links, a per-share owner key, PBKDF2 passwords, least-privilege
   AWS access, and rate limits that forged headers can't dodge.
 - **Infrastructure as code:** Terraform for everything on AWS, with state in its own versioned bucket and offline
@@ -48,6 +50,7 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 | [Deploying](docs/DEPLOY.md) | AWS and Terraform, `.env`, the three ways to expose it, CloudFront |
 | [Lightsail guide](docs/LIGHTSAIL.md) | Step by step: a small always-on server with automatic HTTPS |
 | [Terraform state](docs/TERRAFORM_STATE.md) | Keeping state in S3, moving to it, recovering |
+| [Passkeys](docs/AUTH.md) | Signing in with Face ID or a fingerprint, one app across devices, removing a device |
 | [Phone app](docs/PHONE.md) | Installing NitroDrp on a phone's home screen and what to expect |
 | [Email](docs/EMAIL.md) | Emailing links with Amazon SES: setup, DKIM records, leaving the sandbox, limits |
 | [The demo](docs/DEMO.md) | The in-browser demo, deploying it on Vercel, embedding it |
@@ -72,7 +75,7 @@ Open http://localhost:8080 with the access key `dev-access-key-change-me`.
 ## Status
 
 Deployed and running: the API on a Lightsail server behind Caddy, S3 and DynamoDB, Terraform with remote state,
-S3-only downloads. Tested by 101 API tests, 45 web tests, a browser test of the demo, Terraform and script tests,
+S3-only downloads. Tested by 138 API tests, 45 web tests, a browser test of the demo, Terraform and script tests,
 and an end-to-end smoke test against the live site.
 
 Not yet exercised against real services: emailing links (it needs the SES setup in [docs/EMAIL.md](docs/EMAIL.md)), the

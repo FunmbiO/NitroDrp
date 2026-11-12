@@ -15,6 +15,11 @@ The AWS SDK for .NET (`AWSSDK.S3`, `AWSSDK.DynamoDBv2`, `AWSSDK.CloudFront` and 
 Anyone redistributing a build that includes it, such as a container image, should keep those license notices,
 which come inside the NuGet packages. Versions are pinned in `api/**/packages.lock.json`.
 
+Passkey sign-in uses `Fido2` (the FIDO2/WebAuthn library for .NET) with its dependencies `Fido2.Models`,
+`NSec.Cryptography`, `System.Formats.Cbor` and `Microsoft.IdentityModel.*` (tokens, logging, abstractions), all
+**MIT**. `NSec.Cryptography` bundles the `libsodium` native library, which is **ISC** licensed. Versions are pinned in
+`api/**/packages.lock.json`.
+
 ## Loaded at runtime
 
 The pages load **Inter** and **Space Mono** from Google Fonts (both SIL Open Font License 1.1). They are not

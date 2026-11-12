@@ -55,6 +55,7 @@ Without Docker, start an S3 emulator and DynamoDB Local yourself, then run the A
 | Web | `cd web && npm test` | Chunk uploader, file matching, formatting, zip writer, the demo backend |
 | Demo in a browser | `cd web && npm run build:demo && npx vite preview --port 4174` then `npm run e2e:demo` | Password gate, downloads, limits, footer, no requests to any server, an embedded iframe that grows and shrinks |
 | Whole stack | `python3 dev/smoke.py [url]` | Against a running stack (local or deployed): 40 MB multipart upload with a simulated crash and resume, download, zip, byte-for-byte comparison, delete |
+| Passkeys in a browser | `npm run e2e:passkeys` (needs the stack running; see the header of `web/e2e/passkeys.mjs`) | Enrolling, signing in on a second device, the shared Recent list, removing a device, cookie flags |
 | Rate limit | `python3 dev/ratelimit-check.py https://your-site` | That forged client-IP headers can't dodge the limit (run against a deployed site) |
 | Terraform | `cd infra/terraform && terraform init -backend=false && terraform test` | CloudFront on and off, email (SES) on and off, offline |
 | Terraform state | `bash infra/test-state-backend.sh` | Bootstrap and migrate state against an S3 emulator, recovery, versioning, locking |

@@ -55,6 +55,9 @@ flowchart LR
 
 ## Security model
 
+- **Signing in.** With passkeys on, the owner signs in with Face ID, a fingerprint or a PIN (WebAuthn) and holds a
+  signed, HttpOnly, `SameSite=Strict` cookie for 90 days of use. It is valid only while its passkey exists, and
+  changing `API_KEY` invalidates every session. See [AUTH.md](AUTH.md).
 - **Two kinds of secret.** A shared *access key* (`API_KEY`) gates creating links, because this is a private
   instance. Each share gets its own 256-bit *owner key* (stored only as a SHA-256 hash) that authorises
   uploading, finalizing and deleting that share.
@@ -85,6 +88,12 @@ flowchart LR
 | POST | `/api/shares/{token}/finalize` | `X-Owner-Key` | Verify sizes in S3 and make the link live |
 | DELETE | `/api/shares/{token}` | `X-Owner-Key` | Delete files and metadata now |
 | GET | `/api/shares/{token}` | none | Public metadata |
+| GET | `/api/auth/status` | none | Whether passkeys are on, whether you're signed in, whether any exist |
+| POST | `/api/auth/register/begin`, `/register/finish` | session or `X-Api-Key` | Enrol a device's passkey |
+| POST | `/api/auth/login/begin`, `/login/finish` | none (passkey proves it) | Sign in; sets the session cookie |
+| POST | `/api/auth/logout` | none | Clear the session cookie |
+| GET, DELETE | `/api/auth/passkeys`, `/api/auth/passkeys/{id}` | session | List and remove enrolled devices |
+| GET | `/api/shares` | session or `X-Api-Key` | The owner's live links, newest first, the same on every device |
 | GET | `/api/config` | none | Whether email is available, and its limits (the page hides the email options if not) |
 | POST | `/api/shares/{token}/email` | `X-Owner-Key` | Email the link to up to 10 addresses; per-recipient results and remaining allowance |
 | POST | `/api/shares/{token}/unlock` | password | File list for protected links |
