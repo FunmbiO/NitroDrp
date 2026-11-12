@@ -113,3 +113,24 @@ public sealed class FakeEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 }
+
+public sealed class InMemoryPasskeyStore : NitroDrp.Api.Auth.IPasskeyStore
+{
+    public Dictionary<string, NitroDrp.Api.Auth.Passkey> Keys { get; } = [];
+    private readonly object _gate = new();
+
+    public Task AddAsync(NitroDrp.Api.Auth.Passkey key, CancellationToken ct)
+    {
+        lock (_gate) { if (!Keys.TryAdd(key.Id, key)) throw new InvalidOperationException("duplicate credential"); }
+        return Task.CompletedTask;
+    }
+    public Task<NitroDrp.Api.Auth.Passkey?> GetAsync(string id, CancellationToken ct) { lock (_gate) return Task.FromResult(Keys.GetValueOrDefault(id)); }
+    public Task<IReadOnlyList<NitroDrp.Api.Auth.Passkey>> ListAsync(CancellationToken ct)
+    { lock (_gate) return Task.FromResult<IReadOnlyList<NitroDrp.Api.Auth.Passkey>>(Keys.Values.OrderBy(k => k.CreatedAt).ToList()); }
+    public Task<bool> RemoveAsync(string id, CancellationToken ct) { lock (_gate) return Task.FromResult(Keys.Remove(id)); }
+    public Task TouchAsync(string id, uint signCount, DateTimeOffset now, CancellationToken ct)
+    {
+        lock (_gate) { if (Keys.TryGetValue(id, out var k)) Keys[id] = k with { SignCount = signCount, LastUsedAt = now }; }
+        return Task.CompletedTask;
+    }
+}
