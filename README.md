@@ -1,24 +1,47 @@
 # NitroDrp
 
-```
-$ nitrodrp send --private
-```
+[![CI](https://github.com/FunmbiO/NitroDrp/actions/workflows/ci.yml/badge.svg)](https://github.com/FunmbiO/NitroDrp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A private, self-hosted file transfer app: upload big files, get an unguessable link, set an expiry, an optional
-password and a download limit. Built to replace a WeTransfer subscription, and as a portfolio project.
+**A private, self-hosted file-transfer service, built to replace a WeTransfer subscription.** Resumable multi-GB
+uploads straight to S3, expiring links with an optional password and download limit, passkey sign-in, email
+delivery, an installable phone app, and the whole AWS setup as Terraform. It runs for real at
+[drop.jadedmedia.ca](https://drop.jadedmedia.ca).
 
-**Live demo: [demo.jadedmedia.ca](https://demo.jadedmedia.ca)**. The whole app, with the backend running in your
-browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
+**[Try the live demo](https://demo.jadedmedia.ca)** · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Docs](#docs)
 
-| Send | Link ready |
-|---|---|
-| ![Upload screen: drop files, choose expiry, password and download limit](docs/screenshots/1-upload.png) | ![Link created, with a summary of its settings](docs/screenshots/2-link-created.png) |
-| **Receive** | **On a phone** |
-| ![Recipient page with download-all and per-file buttons](docs/screenshots/3-download.png) | ![The recipient page on a phone](docs/screenshots/4-mobile.png) |
-| **Email the link (optional)** | |
-| ![Optional email section on the upload screen](docs/screenshots/5-email.png) | |
+![A 25-second walkthrough: choose files, set a password and an email, create the link, then open it the way a recipient would](docs/screenshots/walkthrough.gif)
 
-## Highlights
+The demo runs its whole backend inside your browser, so nothing you pick is uploaded
+([how the demo works](docs/DEMO.md)).
+
+## Built like production
+
+- **Correct under concurrency.** Download and email limits are enforced by one conditional DynamoDB write, so
+  parallel requests can't exceed them. There's a test that fires 60 at once.
+- **Tested at every layer:** 213 API tests (including a software authenticator and about 45 hostile-input
+  requests), 97 web tests, browser tests with a virtual Face ID, offline Terraform tests, and CI for all of it.
+- **Security you can read about:** passkeys instead of a stored key, rate limits that forged headers can't dodge,
+  and every text box validated on the page and again on the server ([details](docs/SECURITY.md)).
+- **Reproducible and recoverable:** pinned dependencies and base images, Terraform state in its own versioned
+  bucket, and documented steps for deploying it from nothing.
+
+## Decisions and trade-offs
+
+| Decision | Why | What it costs |
+|---|---|---|
+| **Browsers upload straight to S3**, in 16 MiB parts, using presigned URLs | The server never carries file bytes, so a small server handles multi-GB transfers. S3 itself is the record of progress (`ListParts`), so a closed tab resumes where it stopped. | CORS setup, extra round trips, and a more involved client. |
+| **One DynamoDB table**, with atomic conditional writes for counters | No race on download or email limits, no separate expiry job (TTL), and almost no cost at this scale. | Access patterns are fixed up front. The owner's link list sits in one partition, which is fine for one owner and wouldn't be for thousands. |
+| **Expiry in three layers:** the API refuses at once, DynamoDB TTL deletes rows, S3 lifecycle rules delete files by key prefix (`d7/`, `d30/`) | Expired links stop working immediately, and data is deleted without a cleanup job. | Lifecycle granularity is whole days. |
+| **A small always-on server** (Lightsail and Docker Compose) rather than Lambda or containers on ECS | A predictable US$8 to 12 a month, simple to debug, with AWS services only where they earn their keep. | One instance: rate limits and in-flight sign-in challenges live in memory, and a restart means starting a prompt again. |
+| **"Download all" streams a ZIP through the server** (ZIP64, constant memory) | No second copy of every upload sitting in S3. Verified with a 4.8 GB archive. | The server's bandwidth is the limit, so concurrent zips are capped. |
+| **Passkeys (WebAuthn) and a signed cookie**, with the access key kept as the recovery secret | Face ID everywhere, nothing phishable, and the same links on every device. Removing a device signs it out. | A single-owner model: there are no user accounts or sharing between people. |
+| **The demo is a second implementation of the API, in the browser** | It's free to host, safe to show anyone, and runs the same UI code against the same TypeScript interface. | Two backends to keep in step. Shared types and the same rules in tests do that. |
+| **Terraform for AWS, with offline tests** | Everything is reviewable and reproducible, and tests run with no account or credentials. | A mocked provider can't check everything (it can't fake some computed values). |
+
+**Known limits.** One instance, no load testing yet, and no monitoring or alerting beyond a budget alert.
+
+## Features
 
 - **Multi-GB uploads that survive bad connections.** The browser sends 16 MiB parts straight to S3 (the server only
   signs URLs), retries each part, and **resumes after a reload**.
@@ -41,6 +64,16 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 
 **Stack:** ASP.NET Core 10 (minimal APIs) · React + TypeScript (Vite) · Amazon S3 · DynamoDB · SES (optional) · CloudFront
 (optional) · Terraform · Docker Compose · Caddy or Cloudflare Tunnel · AWS Lightsail.
+
+## Screens
+
+| Send | Link ready |
+|---|---|
+| ![Upload screen: drop files, choose expiry, password and download limit](docs/screenshots/1-upload.png) | ![Link created, with a summary of its settings](docs/screenshots/2-link-created.png) |
+| **Receive** | **On a phone** |
+| ![Recipient page with download-all and per-file buttons](docs/screenshots/3-download.png) | ![The recipient page on a phone](docs/screenshots/4-mobile.png) |
+| **Email the link (optional)** | |
+| ![Optional email section on the upload screen](docs/screenshots/5-email.png) | |
 
 ## Docs
 
