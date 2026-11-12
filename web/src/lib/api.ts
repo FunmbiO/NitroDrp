@@ -49,7 +49,7 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; hea
 
 const owner = (key: string) => ({ 'X-Owner-Key': key })
 
-export const realApi = {
+const realApi = {
   createShare: (
     apiKey: string,
     body: { files: { name: string; size: number; contentType: string }[]; expiresInDays: number; password?: string; downloadLimit?: number },

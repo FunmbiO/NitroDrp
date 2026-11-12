@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { EMBED } from './config'
 
-export const HEIGHT_MESSAGE = 'nitrodrp:height'
+const HEIGHT_MESSAGE = 'nitrodrp:height'
 
 /**
  * In embed mode, tell the parent page how tall the content is so it can size the iframe.
