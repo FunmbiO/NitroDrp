@@ -18,8 +18,10 @@ const ok = (pass, message) => {
 const H = { 'X-Requested-With': 'nitrodrp' }
 
 /** A browser profile with its own virtual authenticator: one "device". */
+let deviceNumber = 0
 async function device(browser) {
-  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } })
+  // each device has its own address, so its own rate limit, as in real life (the test would otherwise share one)
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 }, extraHTTPHeaders: { 'X-Client-IP': `10.30.0.${++deviceNumber}` } })
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   await cdp.send('WebAuthn.enable')
@@ -44,11 +46,12 @@ async function publish(context) {
   return { token: created.token, finalized: fin.status() === 204 }
 }
 
+let openLink
 const browser = await chromium.launch()
 try {
   // ---- device A: first time. The access key proves it's you, then a passkey is saved. ----
   const A = await device(browser)
-  await A.page.goto(`${BASE}/`)
+  await A.page.goto(`${BASE}/owner`)
   await A.page.waitForSelector('text=Set up this device')
   ok(true, 'first visit asks to set up this device (no passkeys exist yet)')
 
@@ -88,7 +91,7 @@ try {
   ok(credentials.length === 1, 'the authenticator on A holds one passkey')
   for (const credential of credentials) await B.cdp.send('WebAuthn.addCredential', { authenticatorId: B.authenticatorId, credential })
 
-  await B.page.goto(`${BASE}/`)
+  await B.page.goto(`${BASE}/owner`)
   await B.page.waitForSelector('button:has-text("Sign in with a passkey")')
   ok(true, 'a fresh device offers "Sign in with a passkey"')
   await B.page.click('button:has-text("Sign in with a passkey")')
@@ -112,6 +115,7 @@ try {
 
   // ---- an in-app loader that has appeared lingers a moment, even if the data arrives sooner ----
   const slowLink = await publish(A.context)
+  openLink = await publish(A.context)
   const slow = await A.context.newPage()
   await slow.route(`**/api/shares/${slowLink.token}`, async (route) => {
     await new Promise((r) => setTimeout(r, 700)) // the link details arrive after 0.7 s
@@ -139,11 +143,13 @@ try {
   await B.page.goto(`${BASE}/devices`)
   await B.page.waitForSelector('text=Test laptop')
   await B.page.click('button:has-text("Remove")')
-  await B.page.waitForSelector('text=Set up this device', { timeout: 15_000 })
-  ok(true, 'removing the passkey signs that device out')
+  await B.page.waitForSelector('text=Hi, welcome', { timeout: 15_000 })
+  ok(true, 'removing the passkey signs that device out (it falls back to the welcome page)')
   await A.page.goto(`${BASE}/`)
-  await A.page.waitForSelector('text=Set up this device', { timeout: 15_000 })
+  await A.page.waitForSelector('text=Hi, welcome', { timeout: 15_000 })
   ok(true, 'and every other device that was using it, straight away')
+  await A.page.goto(`${BASE}/owner`)
+  await A.page.waitForSelector('text=Set up this device')
   const gone = await A.context.request.get(`${BASE}/api/shares`, { headers: H })
   ok(gone.status() === 401, 'the old cookie is refused by the API')
 
@@ -154,27 +160,53 @@ try {
   ok(true, 'with every passkey removed, the access key sets a device up again')
   await A.page.goto(`${BASE}/devices`)
   await A.page.click('button:has-text("Sign out of this device")')
+  await A.page.waitForSelector('text=Hi, welcome', { timeout: 8000 })
+  await A.page.goto(`${BASE}/owner`)
   await A.page.waitForSelector('button:has-text("Sign in with a passkey")')
-  ok(true, 'signing out returns to the sign-in screen')
+  ok(true, 'signing out returns to the welcome page, and /owner offers the passkey sign-in again')
 
-  // ---- a stranger can't get into the app, whatever they click or tamper with ----
+  // ---- a stranger sees a welcome page and nothing else ----
   const X = await browser.newContext({ extraHTTPHeaders: { 'X-Client-IP': '10.20.30.40' } }) // a stranger has their own address, so their own rate limit
   const xp = await X.newPage()
+  for (const path of ['/', '/recent', '/devices', '/created/AbCdEfGh1234', '/anything/at/all']) {
+    await xp.goto(`${BASE}${path}`)
+    await xp.waitForSelector('text=Hi, welcome')
+    const body = await xp.textContent('main')
+    const clean = (await xp.locator('input[type=file]').count()) === 0 && !/Create link|Set up this device|Sign in with a passkey|Access key/.test(body)
+    ok(clean, `a stranger at ${path} gets the welcome page: no app, no sign-in form`)
+  }
   await xp.goto(`${BASE}/`)
-  await xp.waitForSelector('button:has-text("Sign in with a passkey")')
+  await xp.waitForSelector('text=Hi, welcome')
+  ok((await xp.textContent('main')).includes('private file transfer app') && (await xp.getAttribute('a.btn', 'href')) === 'https://demo.jadedmedia.ca', 'it says whose app it is and links to the demo')
+  ok(await xp.locator('.hero-scene canvas').isVisible(), 'with the racer')
+  ok((await xp.locator('header .nav-link').count()) === 0, 'and no app menu')
+
+  // a download link still works for anyone who has it, and so does pasting one
+  await xp.goto(`${BASE}/d/${openLink.token}`)
+  await xp.waitForSelector('.dl-row')
+  ok(true, 'a download link opens for a stranger who was sent it')
+  await xp.goto(`${BASE}/open`)
+  await xp.waitForSelector('#open-link')
+  ok(true, 'and the paste-a-link page is open to them too')
+
+  // the owner's door is /owner. Strangers can look, but there's nothing they can do behind it
+  await xp.goto(`${BASE}/`)
+  await xp.click('text=Owner sign-in')
+  await xp.waitForURL('**/owner')
+  await xp.waitForSelector('text=Use the access key without a passkey')
   await xp.click('text=Use the access key without a passkey')
   await xp.waitForSelector('#ak-key')
-  ok((await xp.locator('input[type=file]').count()) === 0 && (await xp.locator('text=Create link').count()) === 0, 'the access-key button no longer opens the app: it asks for the key')
+  ok((await xp.locator('input[type=file]').count()) === 0 && (await xp.locator('text=Create link').count()) === 0, 'the access-key option asks for the key instead of opening the app')
 
   await xp.fill('#ak-key', 'not-the-access-key-at-all-123')
   await xp.click('button:has-text("Continue with the access key")')
   await xp.waitForSelector('.field-error')
   ok((await xp.textContent('.field-error')).includes("isn't right") && (await xp.locator('input[type=file]').count()) === 0, 'a wrong key is refused by the server, and the app stays shut')
 
-  // tampering with the page's own storage doesn't open it either
+  // tampering with the page's own storage doesn't open anything either
   await xp.evaluate(() => { sessionStorage.setItem('nitrodrp.accessKeyMode', '1'); localStorage.setItem('nitrodrp.accessKeyMode', '1'); localStorage.setItem('nitrodrp.apiKey', 'guess') })
-  await xp.reload()
-  await xp.waitForSelector('button:has-text("Sign in with a passkey")')
+  await xp.goto(`${BASE}/`)
+  await xp.waitForSelector('text=Hi, welcome')
   ok((await xp.locator('input[type=file]').count()) === 0, 'setting flags by hand in the browser does not open it')
 
   // and the server refuses the same visitor, whatever the page does
@@ -186,6 +218,7 @@ try {
   ]
   ok(anon.every((r) => r.status() === 401), `the server answers a stranger with 401 on every one of those (${anon.map((r) => r.status()).join(', ')})`)
 
+  await xp.goto(`${BASE}/owner`)
   await xp.click('text=Use the access key without a passkey')
   await xp.fill('#ak-key', ACCESS_KEY)
   await xp.click('button:has-text("Continue with the access key")')
