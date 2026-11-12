@@ -19,10 +19,18 @@ public static class TextSafety
     {
         if (string.IsNullOrEmpty(s)) return "";
         var sb = new StringBuilder(s.Length);
+        var afterBreak = false; // a run of control characters (a line break is often two) becomes one space
         foreach (var c in s)
         {
             if (IsSpoofing(c)) continue;
-            sb.Append(char.IsControl(c) ? ' ' : c);
+            if (char.IsControl(c))
+            {
+                if (!afterBreak) sb.Append(' ');
+                afterBreak = true;
+                continue;
+            }
+            afterBreak = false;
+            sb.Append(c);
         }
         return sb.ToString().Trim();
     }

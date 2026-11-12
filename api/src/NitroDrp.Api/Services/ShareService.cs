@@ -222,7 +222,8 @@ public sealed class ShareService(
     }
 
     public ConfigResponse GetConfig() =>
-        new(_o.Email.Enabled, _o.Email.MaxRecipientsPerRequest, _o.Email.MaxRecipientsPerShare);
+        new(_o.Email.Enabled, _o.Email.MaxRecipientsPerRequest, _o.Email.MaxRecipientsPerShare,
+            new UploadLimits(_o.Limits.MaxFiles, _o.Limits.MaxFileBytes, _o.Limits.MaxTotalBytes, _o.Limits.BlockedExtensions, _o.Limits.AllowedExpiryDays));
 
     /// <summary>
     /// Emails the download link. Only the link's owner can, only once it is live, never more than the lifetime cap,

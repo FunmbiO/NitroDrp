@@ -38,7 +38,9 @@ public sealed record UploadStatusResponse(
 public sealed record EmailShareRequest(List<string>? Recipients, string? Message, string? SenderName, string? SenderEmail);
 public sealed record EmailResult(string Email, bool Sent, string? Error);
 public sealed record EmailShareResponse(List<EmailResult> Results, int Remaining);
-public sealed record ConfigResponse(bool EmailEnabled, int MaxRecipientsPerRequest, int MaxRecipientsPerShare);
+/// <summary>The upload rules, published so the page can say "too big" or "can't send .exe files" before any upload starts.</summary>
+public sealed record UploadLimits(int MaxFiles, long MaxFileBytes, long MaxTotalBytes, string[] BlockedExtensions, int[] ExpiryDays);
+public sealed record ConfigResponse(bool EmailEnabled, int MaxRecipientsPerRequest, int MaxRecipientsPerShare, UploadLimits Limits);
 
 public sealed record ZipLinkResponse(string Url);
 public sealed record ZipEntryPlan(string Name, string StorageKey);

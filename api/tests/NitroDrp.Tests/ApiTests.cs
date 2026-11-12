@@ -228,4 +228,15 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
         Assert.Equal("bad_email", (await bad.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task Config_publishes_the_upload_rules_so_the_page_can_check_files_first()
+    {
+        var cfg = await _http.GetFromJsonAsync<JsonElement>("/api/config");
+        var limits = cfg.GetProperty("limits");
+        Assert.True(limits.GetProperty("maxFiles").GetInt32() > 0);
+        Assert.True(limits.GetProperty("maxFileBytes").GetInt64() > 0);
+        Assert.Contains(limits.GetProperty("blockedExtensions").EnumerateArray(), e => e.GetString() == "exe");
+        Assert.Contains(limits.GetProperty("expiryDays").EnumerateArray(), e => e.GetInt32() == 7);
+    }
 }
