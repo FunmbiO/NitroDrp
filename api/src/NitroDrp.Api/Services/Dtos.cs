@@ -35,6 +35,11 @@ public sealed record UploadFileStatus(string Id, string Name, long Size, int Par
 public sealed record UploadStatusResponse(
     string Token, DateTimeOffset ExpiresAt, int PartSize, bool Finalized, IReadOnlyList<UploadFileStatus> Files);
 
+public sealed record EmailShareRequest(List<string>? Recipients, string? Message, string? SenderName, string? SenderEmail);
+public sealed record EmailResult(string Email, bool Sent, string? Error);
+public sealed record EmailShareResponse(List<EmailResult> Results, int Remaining);
+public sealed record ConfigResponse(bool EmailEnabled, int MaxRecipientsPerRequest, int MaxRecipientsPerShare);
+
 public sealed record ZipLinkResponse(string Url);
 public sealed record ZipEntryPlan(string Name, string StorageKey);
 public sealed record ZipPlan(string FileName, IReadOnlyList<ZipEntryPlan> Entries);

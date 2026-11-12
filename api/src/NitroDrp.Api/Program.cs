@@ -81,6 +81,7 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("create", c => PerIp(c, 20));
     o.AddPolicy("upload", c => PerIp(c, 1200));   // one presign + one complete per 16 MiB part
     o.AddPolicy("public", c => PerIp(c, 60));
+    o.AddPolicy("email", c => PerIp(c, 10));    // each request can reach up to 10 inboxes
     o.AddPolicy("password", c => PerIp(c, 10));   // PBKDF2 is deliberately slow; this also throttles guessing
 });
 

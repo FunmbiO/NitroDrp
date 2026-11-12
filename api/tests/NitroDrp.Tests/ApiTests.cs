@@ -17,12 +17,16 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public InMemoryShareStore Store { get; } = new();
     public FakeStorage Storage { get; } = new();
     public RecordingEdgeCache Edge { get; } = new();
+    public FakeEmailSender Mail { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("NitroDrp:ApiKey", ApiKey);
         builder.UseSetting("NitroDrp:S3:Bucket", "test-bucket");
         builder.UseSetting("NitroDrp:SenderName", "Jaded Media");
+        builder.UseSetting("NitroDrp:PublicBaseUrl", "https://drop.example.com");
+        builder.UseSetting("NitroDrp:Email:Enabled", "true");
+        builder.UseSetting("NitroDrp:Email:FromAddress", "transfers@example.com");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IShareStore>();
@@ -30,6 +34,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IDownloadLinkSigner>();
             services.RemoveAll<IObjectReader>();
             services.RemoveAll<IEdgeCache>();
+            services.RemoveAll<NitroDrp.Api.Email.IEmailSender>();
+            services.AddSingleton<NitroDrp.Api.Email.IEmailSender>(Mail);
             services.AddSingleton<IEdgeCache>(Edge);
             services.AddSingleton<IShareStore>(Store);
             services.AddSingleton<IFileStorage>(Storage);
@@ -172,5 +178,50 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.False(factory.Storage.Objects.ContainsKey(key));
         Assert.Contains($"/d1/{created.Token}/*", factory.Edge.Paths);
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/shares/{created.Token}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Config_tells_the_page_whether_email_is_available()
+    {
+        var cfg = await _http.GetFromJsonAsync<JsonElement>("/api/config");
+        Assert.True(cfg.GetProperty("emailEnabled").GetBoolean());
+        Assert.Equal(10, cfg.GetProperty("maxRecipientsPerRequest").GetInt32());
+    }
+
+    [Fact]
+    public async Task Emailing_a_link_over_http_sends_it_and_reports_each_recipient()
+    {
+        var token = await PublishAsync(files: [("a.txt", "alpha")]);
+        // PublishAsync keeps the owner key private, so mint a share we hold the key for
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/shares")
+        {
+            Content = JsonContent.Create(new { files = new[] { new { name = "z.txt", size = 3 } }, expiresInDays = 1 }),
+        };
+        create.Headers.Add("X-Api-Key", ApiFactory.ApiKey);
+        var created = (await (await _http.SendAsync(create)).Content.ReadFromJsonAsync<Created>(new JsonSerializerOptions(JsonSerializerDefaults.Web)))!;
+        var key = factory.Store.Shares[created.Token].Files[0].StorageKey;
+        factory.Storage.DeclaredSizes[key] = 3;
+        await Owner(created, HttpMethod.Post, $"files/{created.Files[0].Id}/complete", new { parts = new[] { new { partNumber = 1, eTag = "e" } } });
+        await Owner(created, HttpMethod.Post, "finalize", null);
+
+        var body = new { recipients = new[] { "a@example.com", "b@example.com" }, message = "hi", senderName = "Amina", senderEmail = "amina@mail.example" };
+        var res = await Owner(created, HttpMethod.Post, "email", body);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, json.GetProperty("results").GetArrayLength());
+        Assert.True(json.GetProperty("results")[0].GetProperty("sent").GetBoolean());
+        Assert.Contains(factory.Mail.Sent, m => m.To == "b@example.com" && m.TextBody.Contains($"https://drop.example.com/d/{created.Token}"));
+        Assert.NotEqual(token, created.Token);
+
+        // no owner key: refused, nothing extra sent
+        var before = factory.Mail.Sent.Count;
+        var noKey = await _http.PostAsJsonAsync($"/api/shares/{created.Token}/email", body);
+        Assert.Equal(HttpStatusCode.Forbidden, noKey.StatusCode);
+        Assert.Equal(before, factory.Mail.Sent.Count);
+
+        // a bad address is a clear 400
+        var bad = await Owner(created, HttpMethod.Post, "email", new { recipients = new[] { "nope" } });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Equal("bad_email", (await bad.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
     }
 }

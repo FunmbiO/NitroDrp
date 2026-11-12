@@ -1,4 +1,5 @@
 using NitroDrp.Api.Domain;
+using NitroDrp.Api.Email;
 using NitroDrp.Api.Services;
 using NitroDrp.Api.Storage;
 
@@ -94,6 +95,21 @@ public sealed class RecordingEdgeCache : IEdgeCache
     {
         if (Throw is not null) throw Throw;
         Paths.AddRange(paths);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeEmailSender : IEmailSender
+{
+    public List<EmailMessage> Sent { get; } = [];
+
+    /// <summary>Addresses the "email service" refuses, like SES in sandbox mode with an unverified recipient.</summary>
+    public HashSet<string> Refuses { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task SendAsync(EmailMessage message, CancellationToken ct)
+    {
+        if (Refuses.Contains(message.To)) throw new InvalidOperationException("refused");
+        lock (Sent) Sent.Add(message);
         return Task.CompletedTask;
     }
 }

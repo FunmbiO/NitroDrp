@@ -23,7 +23,7 @@ public class ShareServiceTests
             S3 = { PartSizeBytes = Part },
             Limits = { AllowedExpiryDays = [1, 7, 30], BlockedExtensions = ["exe"], MaxFiles = 3, MaxFileBytes = 1L << 30, MaxTotalBytes = 2L << 30 },
         };
-        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), _edge, ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareService>.Instance);
+        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), _edge, new FakeEmailSender(), ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareService>.Instance);
     }
 
     private static CreateShareRequest Req(string? password = null, int? limit = null, int days = 7, params (string, long)[] files) =>

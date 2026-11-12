@@ -14,6 +14,8 @@ public static class ShareEndpoints
         var api = app.MapGroup("/api");
         api.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+        api.MapGet("/config", (ShareService svc) => Results.Ok(svc.GetConfig())).RequireRateLimiting("public");
+
         var shares = api.MapGroup("/shares");
 
         // Sender: needs the API key (private instance). Everything after this uses the per-share owner key.
@@ -40,6 +42,11 @@ public static class ShareEndpoints
             await svc.CompleteFileAsync(token, Owner(http), fileId, body, ct);
             return Results.NoContent();
         }).RequireRateLimiting("upload");
+
+        // Optional: email the link. Owner-only, only once the link is live, and capped per link.
+        shares.MapPost("/{token}/email", async (
+            string token, [FromBody] EmailShareRequest body, HttpRequest http, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.SendEmailsAsync(token, Owner(http), body, ct))).RequireRateLimiting("email");
 
         shares.MapPost("/{token}/finalize", async (string token, HttpRequest http, ShareService svc, CancellationToken ct) =>
         {

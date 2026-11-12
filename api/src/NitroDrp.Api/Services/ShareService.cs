@@ -1,12 +1,14 @@
 using Microsoft.Extensions.Options;
+using System.Net.Mail;
 using NitroDrp.Api.Domain;
+using NitroDrp.Api.Email;
 using NitroDrp.Api.Storage;
 
 namespace NitroDrp.Api.Services;
 
 /// <summary>All business rules live here so they can be tested without HTTP, S3 or DynamoDB.</summary>
 public sealed class ShareService(
-    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IEdgeCache edge, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock, ILogger<ShareService> log)
+    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IEdgeCache edge, IEmailSender email, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock, ILogger<ShareService> log)
 {
     private const int MaxS3Parts = 10_000;
     private const int MaxPartsPerPresign = 100;
@@ -212,6 +214,87 @@ public sealed class ShareService(
         var fileName = FileNames.Sanitize($"{share.SenderName} files.zip");
         return new ZipPlan(fileName.Length > 0 ? fileName : "files.zip", files.Select((f, i) => new ZipEntryPlan(names[i], f.StorageKey)).ToList());
     }
+
+    public ConfigResponse GetConfig() =>
+        new(_o.Email.Enabled, _o.Email.MaxRecipientsPerRequest, _o.Email.MaxRecipientsPerShare);
+
+    /// <summary>
+    /// Emails the download link. Only the link's owner can, only once it is live, never more than the lifetime cap,
+    /// and one bad address doesn't stop the others. The password is never included.
+    /// </summary>
+    public async Task<EmailShareResponse> SendEmailsAsync(string token, string? ownerKey, EmailShareRequest req, CancellationToken ct)
+    {
+        var cfg = _o.Email;
+        if (!cfg.Enabled) throw ServiceException.NotFound("email_disabled", "Email isn't set up on this server.");
+
+        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        if (share.Status != ShareStatus.Active)
+            throw ServiceException.Conflict("not_ready", "Finish uploading before emailing the link.");
+        if (clock.GetUtcNow() >= share.ExpiresAt)
+            throw ServiceException.Gone("expired", "This link has expired.");
+
+        var sentBefore = share.EmailsSent; // read before reserving: some stores hand back the live object
+        var recipients = ParseRecipients(req.Recipients, cfg.MaxRecipientsPerRequest);
+        var message = string.IsNullOrWhiteSpace(req.Message) ? null : req.Message.Trim();
+        if (message is { Length: > 1000 })
+            throw ServiceException.BadRequest("message_too_long", "Keep the message under 1,000 characters.");
+        var replyTo = ParseOptionalAddress(req.SenderEmail);
+        var senderName = string.IsNullOrWhiteSpace(req.SenderName) ? _o.SenderName : ShareEmailComposer.OneLine(req.SenderName, 60);
+
+        if (!await store.TryReserveEmailsAsync(token, recipients.Count, cfg.MaxRecipientsPerShare, ct))
+            throw ServiceException.Conflict("email_limit", $"This link can email at most {cfg.MaxRecipientsPerShare} people in total.");
+
+        var composed = ShareEmailComposer.Compose(new ShareEmailContext(
+            senderName, _o.SenderName, $"{_o.PublicBaseUrl!.TrimEnd('/')}/d/{token}", share.Files.Count, share.Files.Sum(f => f.Size),
+            share.ExpiresAt, share.PasswordHash is not null, share.Files.OrderBy(f => f.Order).Select(f => f.Name).ToList(), message));
+
+        var results = new List<EmailResult>();
+        foreach (var to in recipients)
+        {
+            try
+            {
+                await email.SendAsync(new EmailMessage(to, _o.SenderName, cfg.FromAddress!, replyTo, composed.Subject, composed.Text, composed.Html), ct);
+                results.Add(new EmailResult(to, true, null));
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // Log the kind of failure, not the address: addresses are other people's personal data.
+                log.LogWarning("Email to a recipient failed: {Type}", e.GetType().Name);
+                results.Add(new EmailResult(to, false, "The email service refused this address, or couldn't send it."));
+            }
+        }
+        log.LogInformation("Emailed a share's link to {Count} recipients ({Sent} sent)", recipients.Count, results.Count(r => r.Sent));
+        return new EmailShareResponse(results, Math.Max(0, cfg.MaxRecipientsPerShare - sentBefore - recipients.Count));
+    }
+
+    private static List<string> ParseRecipients(List<string>? raw, int max)
+    {
+        var list = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in raw ?? [])
+        {
+            var a = entry?.Trim() ?? "";
+            if (a.Length == 0) continue;
+            if (!IsPlainAddress(a)) throw ServiceException.BadRequest("bad_email", $"'{ShareEmailComposer.OneLine(a, 80)}' isn't a valid email address.");
+            if (seen.Add(a)) list.Add(a);
+        }
+        if (list.Count == 0) throw ServiceException.BadRequest("no_recipients", "Add at least one email address.");
+        if (list.Count > max) throw ServiceException.BadRequest("too_many_recipients", $"Send to at most {max} people at a time.");
+        return list;
+    }
+
+    private static string? ParseOptionalAddress(string? raw)
+    {
+        var a = raw?.Trim();
+        if (string.IsNullOrEmpty(a)) return null;
+        return IsPlainAddress(a) ? a : throw ServiceException.BadRequest("bad_email", "Your email address isn't valid.");
+    }
+
+    /// <summary>A bare address only: no display name, no list, no angle brackets, with a dotted domain.</summary>
+    private static bool IsPlainAddress(string a) =>
+        a.Length <= 254
+        && !a.Any(c => char.IsControl(c) || char.IsWhiteSpace(c) || c is ',' or ';' or '<' or '>' or '(' or ')' or '"')
+        && MailAddress.TryCreate(a, out var m) && m.Address == a && m.Host.Contains('.') && !m.Host.EndsWith('.');
 
     public async Task DeleteAsync(string token, string? ownerKey, CancellationToken ct)
     {
