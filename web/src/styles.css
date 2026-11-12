@@ -16,7 +16,16 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
+  box-sizing: border-box;
   min-height: 100vh;
+  min-height: 100dvh; /* the visible height on phones, where the browser bars move */
+  /* Installed on a phone the app runs edge to edge: keep clear of the notch, status bar and home bar.
+     Each inset is 0 on a desktop, so nothing changes there. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* A pull-down at the top of the page won't reload the app (and interrupt an upload). */
+  overscroll-behavior-y: contain;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   background: radial-gradient(rgba(245, 245, 245, 0.09) 1px, transparent 1.5px) 0 0 / 22px 22px, var(--bg);
   color: var(--ink);
   font: 16px/1.5 var(--sans);
