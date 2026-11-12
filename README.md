@@ -55,6 +55,10 @@ npm run dev      # terminal 2: UI on http://localhost:5173
 
 Demo links: `/d/demo1234abcd` (3 files), `/d/locked123456` (password `nitro`), `/d/expired00000` (expired). The mock discards uploaded bytes and serves small zero-filled files, so it's for looking at the UI, not for testing transfers.
 
+## Branding
+
+Every page ends with a credit line: the Jaded Media monogram and "Powered by jadedmedia.ca, used for personal and customer files". To rebrand your own instance, change the text and link in `web/src/components/Footer.tsx` and replace `web/src/assets/jadedmedia-logo.png` (a white logo on a transparent background suits the dark theme).
+
 ## Portfolio demo and embedding
 
 The real app is private (it needs your server and AWS), so for a portfolio the project ships a **demo mode**: the same UI with the whole backend running in the visitor's browser. Nothing is uploaded (files are never even read), "downloads" are small placeholder files, and links only work in that browser. A banner says so. All the rules still apply (expiry, passwords, limits, resume, a real .zip), so it behaves like the product.
