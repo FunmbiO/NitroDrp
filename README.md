@@ -78,3 +78,7 @@ Next: zips are streamed through the server, so heavy use would want a Lambda tha
 Every page ends with a credit line: the Jaded Media monogram and "Powered by jadedmedia.ca, used for personal and
 customer files". To rebrand your own instance, change the text and link in `web/src/components/Footer.tsx` and
 replace `web/src/assets/jadedmedia-logo.png` (a white logo on a transparent background suits the dark theme).
+
+## License
+
+The code is [MIT](LICENSE). The Jaded Media logo and name are **not** covered by it ([details](web/src/assets/NOTICE.md)). Third-party software and its licenses: [THIRD_PARTY.md](THIRD_PARTY.md).
