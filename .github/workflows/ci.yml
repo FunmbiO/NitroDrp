@@ -70,7 +70,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install "moto[server]==5.1.10"
+      - run: pip install "moto[server]==5.2.5"
       - run: dotnet restore api/NitroDrp.sln --locked-mode
       - run: dotnet publish api/src/NitroDrp.Api -c Release --no-restore -o /tmp/api
       - run: npm ci
