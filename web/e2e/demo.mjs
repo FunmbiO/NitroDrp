@@ -102,6 +102,17 @@ try {
   await r.waitForSelector('text=gone')
   ok(true, 'expired example shows the "gone" page')
 
+  // branding footer: text, link and logo on a page recipients see
+  await r.goto(`${BASE}/d/demo1234abcd`)
+  await r.waitForSelector('footer.site-footer')
+  ok((await r.textContent('footer p')) === 'Powered by jadedmedia.ca, used for personal and customer files', 'footer says who powers it and what for')
+  ok((await r.getAttribute('footer p a', 'href')) === 'https://jadedmedia.ca', 'footer links to jadedmedia.ca')
+  ok(await r.evaluate(() => { const i = document.querySelector('footer img'); return i.complete && i.naturalWidth > 0 }), 'footer logo loads')
+  const short = await context.newPage()
+  await short.goto(`${BASE}/d/expired00000`)
+  await short.waitForSelector('footer.site-footer')
+  ok(await short.evaluate(() => document.querySelector('footer').getBoundingClientRect().bottom === innerHeight), 'footer sits at the bottom of a short page')
+
   // the demo must never talk to a server
   ok(outbound.length === 0, `no API or third-party requests${outbound.length ? ': ' + outbound.join(', ') : ''}`)
   ok(errors.length === 0, `no browser errors${errors.length ? ': ' + errors.join(' | ') : ''}`)
@@ -126,6 +137,11 @@ try {
   await host.waitForTimeout(500)
   const after = await host.evaluate(() => document.getElementById('nd').getBoundingClientRect().height)
   ok(after > before, `iframe grows with its content (${Math.round(before)} -> ${Math.round(after)}px)`)
+  // ...and shrinks back when the content does (the footer's full-height layout must not pin it open)
+  for (let i = 0; i < 9; i++) await frame.locator('button[aria-label^="Remove"]').first().click()
+  await host.waitForTimeout(500)
+  const shrunk = await host.evaluate(() => document.getElementById('nd').getBoundingClientRect().height)
+  ok(shrunk < after - 100, `iframe shrinks when content is removed (${Math.round(after)} -> ${Math.round(shrunk)}px)`)
   hostServer.close()
 } catch (err) {
   ok(false, `unexpected error: ${err.message}`)
