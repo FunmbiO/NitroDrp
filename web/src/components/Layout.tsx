@@ -35,6 +35,9 @@ export function Layout() {
               <Link to="/recent" className="nav-link">
                 Recent links
               </Link>
+              <Link to="/open" className="nav-link">
+                Open a link
+              </Link>
               {signedIn && status?.passkeysEnabled && (
                 <Link to="/devices" className="nav-link">
                   Devices

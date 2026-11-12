@@ -17,6 +17,7 @@
   ],
   "shortcuts": [
     { "name": "Send files", "url": "/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Open a link", "url": "/open", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Recent links", "url": "/recent", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -7,6 +7,7 @@ import { CreatedPage } from './pages/CreatedPage'
 import { RecentPage } from './pages/RecentPage'
 import { DownloadPage } from './pages/DownloadPage'
 import { DevicesPage } from './pages/DevicesPage'
+import { OpenLinkPage } from './pages/OpenLinkPage'
 import { AuthProvider } from './lib/auth'
 import { RequireSignIn } from './components/RequireSignIn'
 import { EMBED } from './lib/config'
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<Layout />}>
             {/* Recipients open a link without signing in */}
             <Route path="/d/:token" element={<DownloadPage />} />
+            <Route path="/open" element={<OpenLinkPage />} />
             {/* The sender's pages */}
             <Route element={<RequireSignIn />}>
               <Route path="/" element={<UploadPage />} />
