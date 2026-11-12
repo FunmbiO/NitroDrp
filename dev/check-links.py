@@ -38,8 +38,9 @@ def anchors(path):
 
 
 def markdown_files(root):
+    # tracked AND new-but-not-yet-committed files (minus ignored ones), so it works before you commit
     try:
-        files = subprocess.run(["git", "ls-files", "*.md"], cwd=root, capture_output=True, text=True, check=True).stdout.split()
+        files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md"], cwd=root, capture_output=True, text=True, check=True).stdout.split()
         if files:
             return [os.path.join(root, f) for f in files]
     except (OSError, subprocess.CalledProcessError):
