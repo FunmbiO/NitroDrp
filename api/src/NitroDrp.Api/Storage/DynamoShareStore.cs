@@ -176,6 +176,54 @@ public sealed class DynamoShareStore(IAmazonDynamoDB db, DynamoOptions options) 
         foreach (var chunk in deletes.Chunk(25)) await BatchWriteAsync(chunk.ToList(), ct);
     }
 
+    // The owner's list: pk = "OWNER", sk = "S#{created, zero-padded}#{token}", so a descending query is newest first.
+    // Rows carry the same "ttl" as the link, so DynamoDB drops them when the link goes.
+    private const string OwnerPk = "OWNER";
+
+    private static string SummarySk(ShareSummary s) => $"S#{s.CreatedAt.ToUnixTimeSeconds():D12}#{s.Token}";
+
+    public async Task PutSummaryAsync(ShareSummary s, CancellationToken ct) =>
+        await db.PutItemAsync(new PutItemRequest
+        {
+            TableName = _table,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = S(OwnerPk),
+                ["sk"] = S(SummarySk(s)),
+                ["token"] = S(s.Token),
+                ["createdAt"] = N(s.CreatedAt.ToUnixTimeSeconds()),
+                ["expiresAt"] = N(s.ExpiresAt.ToUnixTimeSeconds()),
+                ["fileCount"] = N(s.FileCount),
+                ["totalSize"] = N(s.TotalSize),
+                ["passwordProtected"] = new AttributeValue { BOOL = s.PasswordProtected },
+                ["downloadLimit"] = N(s.DownloadLimit),
+                ["ttl"] = N((s.ExpiresAt + TtlGrace).ToUnixTimeSeconds()),
+            },
+        }, ct);
+
+    public async Task RemoveSummaryAsync(ShareSummary s, CancellationToken ct) =>
+        await db.DeleteItemAsync(new DeleteItemRequest { TableName = _table, Key = Key(OwnerPk, SummarySk(s)) }, ct);
+
+    public async Task<IReadOnlyList<ShareSummary>> ListSummariesAsync(int limit, CancellationToken ct)
+    {
+        var r = await db.QueryAsync(new QueryRequest
+        {
+            TableName = _table,
+            KeyConditionExpression = "pk = :pk",
+            ExpressionAttributeValues = new() { [":pk"] = S(OwnerPk) },
+            ScanIndexForward = false,
+            Limit = limit,
+        }, ct);
+        return r.Items.Select(i => new ShareSummary(
+            i["token"].S,
+            DateTimeOffset.FromUnixTimeSeconds(Num(i, "createdAt")),
+            DateTimeOffset.FromUnixTimeSeconds(Num(i, "expiresAt")),
+            (int)Num(i, "fileCount"),
+            Num(i, "totalSize"),
+            i["passwordProtected"].BOOL,
+            (int)Num(i, "downloadLimit"))).ToList();
+    }
+
     public async Task EnsureTableAsync(CancellationToken ct)
     {
         try

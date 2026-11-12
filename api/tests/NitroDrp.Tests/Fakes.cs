@@ -33,6 +33,12 @@ public sealed class InMemoryShareStore : IShareStore
         }
     }
 
+    public Dictionary<string, ShareSummary> Summaries { get; } = [];
+    public Task PutSummaryAsync(ShareSummary summary, CancellationToken ct) { lock (_gate) Summaries[summary.Token] = summary; return Task.CompletedTask; }
+    public Task RemoveSummaryAsync(ShareSummary summary, CancellationToken ct) { lock (_gate) Summaries.Remove(summary.Token); return Task.CompletedTask; }
+    public Task<IReadOnlyList<ShareSummary>> ListSummariesAsync(int limit, CancellationToken ct)
+    { lock (_gate) return Task.FromResult<IReadOnlyList<ShareSummary>>(Summaries.Values.OrderByDescending(s => s.CreatedAt).Take(limit).ToList()); }
+
     public Task<bool> TryReserveEmailsAsync(string token, int count, int cap, CancellationToken ct)
     {
         lock (_gate)

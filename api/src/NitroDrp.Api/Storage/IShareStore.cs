@@ -23,4 +23,12 @@ public interface IShareStore
     Task<bool> TryReserveEmailsAsync(string token, int count, int cap, CancellationToken ct);
 
     Task DeleteAsync(string token, CancellationToken ct);
+
+    /// <summary>Adds (or refreshes) a link in the owner's list. Idempotent.</summary>
+    Task PutSummaryAsync(ShareSummary summary, CancellationToken ct);
+
+    Task RemoveSummaryAsync(ShareSummary summary, CancellationToken ct);
+
+    /// <summary>The owner's links, newest first. May include links that have just expired; the caller filters.</summary>
+    Task<IReadOnlyList<ShareSummary>> ListSummariesAsync(int limit, CancellationToken ct);
 }

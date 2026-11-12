@@ -88,9 +88,9 @@ public sealed class ShareService(
     /// What the uploader needs to resume: per file, whether it's complete and which parts S3 already holds.
     /// Parts come from S3 itself (ListParts), so a crashed tab or a lost response can't leave this out of sync.
     /// </summary>
-    public async Task<UploadStatusResponse> GetUploadStatusAsync(string token, string? ownerKey, CancellationToken ct)
+    public async Task<UploadStatusResponse> GetUploadStatusAsync(string token, OwnerAuth owner, CancellationToken ct)
     {
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
         var partSize = _o.S3.PartSizeBytes;
         var files = new List<UploadFileStatus>();
 
@@ -108,9 +108,9 @@ public sealed class ShareService(
         return new UploadStatusResponse(token, share.ExpiresAt, partSize, share.Status == ShareStatus.Active, files);
     }
 
-    public async Task<PresignResponse> PresignAsync(string token, string? ownerKey, string fileId, PresignRequest req, CancellationToken ct)
+    public async Task<PresignResponse> PresignAsync(string token, OwnerAuth owner, string fileId, PresignRequest req, CancellationToken ct)
     {
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
         var file = RequireFile(share, fileId);
         if (share.Status != ShareStatus.Pending || file.Status != FileStatus.Uploading || file.UploadId is null)
             throw ServiceException.Conflict("not_uploading", "This file is no longer accepting uploads.");
@@ -123,9 +123,9 @@ public sealed class ShareService(
         return new PresignResponse(storage.PresignParts(file.StorageKey, file.UploadId, req.PartNumbers.Distinct()).ToList());
     }
 
-    public async Task CompleteFileAsync(string token, string? ownerKey, string fileId, CompleteFileRequest req, CancellationToken ct)
+    public async Task CompleteFileAsync(string token, OwnerAuth owner, string fileId, CompleteFileRequest req, CancellationToken ct)
     {
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
         var file = RequireFile(share, fileId);
         if (file.Status == FileStatus.Complete) return; // idempotent retry
         if (share.Status != ShareStatus.Pending || file.UploadId is null)
@@ -142,10 +142,14 @@ public sealed class ShareService(
         await store.UpdateFileAsync(token, file, ct);
     }
 
-    public async Task FinalizeAsync(string token, string? ownerKey, CancellationToken ct)
+    public async Task FinalizeAsync(string token, OwnerAuth owner, CancellationToken ct)
     {
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
-        if (share.Status == ShareStatus.Active) return;
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
+        if (share.Status == ShareStatus.Active)
+        {
+            await store.PutSummaryAsync(Summarize(share), ct); // idempotent: repairs the list if a first attempt died after activating
+            return;
+        }
         if (share.Files.Any(f => f.Status != FileStatus.Complete))
             throw ServiceException.Conflict("incomplete", "Some files haven't finished uploading.");
 
@@ -156,6 +160,7 @@ public sealed class ShareService(
                 throw ServiceException.Conflict("size_mismatch", $"'{f.Name}' arrived with the wrong size.");
         }
         await store.ActivateAsync(token, ct);
+        await store.PutSummaryAsync(Summarize(share), ct);
     }
 
     /// <summary>Public metadata. For password-protected links the file list stays hidden until unlocked.</summary>
@@ -222,12 +227,12 @@ public sealed class ShareService(
     /// Emails the download link. Only the link's owner can, only once it is live, never more than the lifetime cap,
     /// and one bad address doesn't stop the others. The password is never included.
     /// </summary>
-    public async Task<EmailShareResponse> SendEmailsAsync(string token, string? ownerKey, EmailShareRequest req, CancellationToken ct)
+    public async Task<EmailShareResponse> SendEmailsAsync(string token, OwnerAuth owner, EmailShareRequest req, CancellationToken ct)
     {
         var cfg = _o.Email;
         if (!cfg.Enabled) throw ServiceException.NotFound("email_disabled", "Email isn't set up on this server.");
 
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
         if (share.Status != ShareStatus.Active)
             throw ServiceException.Conflict("not_ready", "Finish uploading before emailing the link.");
         if (clock.GetUtcNow() >= share.ExpiresAt)
@@ -296,14 +301,15 @@ public sealed class ShareService(
         && !a.Any(c => char.IsControl(c) || char.IsWhiteSpace(c) || c is ',' or ';' or '<' or '>' or '(' or ')' or '"')
         && MailAddress.TryCreate(a, out var m) && m.Address == a && m.Host.Contains('.') && !m.Host.EndsWith('.');
 
-    public async Task DeleteAsync(string token, string? ownerKey, CancellationToken ct)
+    public async Task DeleteAsync(string token, OwnerAuth owner, CancellationToken ct)
     {
-        var share = RequireOwner(await store.GetAsync(token, ct), ownerKey);
+        var share = RequireOwner(await store.GetAsync(token, ct), owner);
         foreach (var f in share.Files.Where(f => f is { Status: FileStatus.Uploading, UploadId: not null }))
             await storage.AbortMultipartAsync(f.StorageKey, f.UploadId!, ct);
         var done = share.Files.Where(f => f.Status == FileStatus.Complete).Select(f => f.StorageKey).ToList();
         await storage.DeleteAsync(done, ct);
         await store.DeleteAsync(token, ct);
+        await store.RemoveSummaryAsync(Summarize(share), ct);
         if (done.Count > 0) await InvalidateEdgeAsync(done, ct);
     }
 
@@ -346,12 +352,23 @@ public sealed class ShareService(
             throw ServiceException.Unauthorized("wrong_password", "That password isn't right.");
     }
 
-    private static Share RequireOwner(Share? share, string? ownerKey)
+    private static Share RequireOwner(Share? share, OwnerAuth owner)
     {
         if (share is null) throw ServiceException.NotFound();
-        if (string.IsNullOrEmpty(ownerKey) || !Secrets.FixedTimeEquals(Secrets.Sha256(ownerKey), share.OwnerKeyHash))
+        if (owner.SignedInOwner) return share;
+        if (string.IsNullOrEmpty(owner.Key) || !Secrets.FixedTimeEquals(Secrets.Sha256(owner.Key), share.OwnerKeyHash))
             throw ServiceException.Forbidden("bad_owner_key", "You can't change this link.");
         return share;
+    }
+
+    private static ShareSummary Summarize(Share s) => new(
+        s.Token, s.CreatedAt, s.ExpiresAt, s.Files.Count, s.Files.Sum(f => f.Size), s.PasswordHash is not null, s.DownloadLimit);
+
+    /// <summary>The owner's live links, newest first, the same on every device they sign in on.</summary>
+    public async Task<IReadOnlyList<ShareSummary>> ListMineAsync(CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        return (await store.ListSummariesAsync(100, ct)).Where(s => s.ExpiresAt > now).ToList();
     }
 
     private static ShareFile RequireFile(Share share, string fileId) =>

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NitroDrp.Api.Auth;
 using NitroDrp.Api.Services;
 using NitroDrp.Api.Storage;
 
@@ -7,7 +8,6 @@ namespace NitroDrp.Api.Endpoints;
 public static class ShareEndpoints
 {
     private const string OwnerHeader = "X-Owner-Key";
-    private const string ApiKeyHeader = "X-Api-Key";
 
     public static void MapShareEndpoints(this IEndpointRouteBuilder app)
     {
@@ -18,45 +18,55 @@ public static class ShareEndpoints
 
         var shares = api.MapGroup("/shares");
 
-        // Sender: needs the API key (private instance). Everything after this uses the per-share owner key.
+        // Sender: signed in with a passkey, or holding the access key (the recovery key, and what scripts use).
+        // Everything after this uses the per-share owner key, or the signed-in session.
         shares.MapPost("/", async (
-            [FromBody] CreateShareRequest body, HttpRequest http, ShareService svc, Microsoft.Extensions.Options.IOptions<NitroDrpOptions> opts, CancellationToken ct) =>
+            [FromBody] CreateShareRequest body, HttpRequest http, Sessions sessions, ShareService svc, Microsoft.Extensions.Options.IOptions<NitroDrpOptions> opts, CancellationToken ct) =>
         {
-            var key = http.Headers[ApiKeyHeader].ToString();
-            if (key.Length == 0 || !Secrets.FixedTimeEquals(key, opts.Value.ApiKey))
+            var caller = await AdminAccess.CheckAsync(http, sessions, opts.Value.ApiKey, ct);
+            if (!caller.IsAdmin)
                 throw ServiceException.Unauthorized("bad_api_key", "Wrong access key.");
             var created = await svc.CreateAsync(body, ct);
             return Results.Created($"/api/shares/{created.Token}", created);
         }).RequireRateLimiting("create");
 
-        shares.MapGet("/{token}/upload", async (string token, HttpRequest http, ShareService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetUploadStatusAsync(token, Owner(http), ct))).RequireRateLimiting("upload");
+        // The owner's live links, the same on every device.
+        shares.MapGet("/", async (HttpRequest http, Sessions sessions, ShareService svc, Microsoft.Extensions.Options.IOptions<NitroDrpOptions> opts, HttpResponse res, CancellationToken ct) =>
+        {
+            var caller = await AdminAccess.CheckAsync(http, sessions, opts.Value.ApiKey, ct);
+            if (!caller.IsAdmin) throw ServiceException.Unauthorized("sign_in_required", "Sign in first.");
+            res.Headers.CacheControl = "no-store";
+            return Results.Ok(await svc.ListMineAsync(ct));
+        }).RequireRateLimiting("public");
+
+        shares.MapGet("/{token}/upload", async (string token, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetUploadStatusAsync(token, await OwnerAsync(http, sessions, ct), ct))).RequireRateLimiting("upload");
 
         shares.MapPost("/{token}/files/{fileId}/presign", async (
-            string token, string fileId, [FromBody] PresignRequest body, HttpRequest http, ShareService svc, CancellationToken ct) =>
-            Results.Ok(await svc.PresignAsync(token, Owner(http), fileId, body, ct))).RequireRateLimiting("upload");
+            string token, string fileId, [FromBody] PresignRequest body, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.PresignAsync(token, await OwnerAsync(http, sessions, ct), fileId, body, ct))).RequireRateLimiting("upload");
 
         shares.MapPost("/{token}/files/{fileId}/complete", async (
-            string token, string fileId, [FromBody] CompleteFileRequest body, HttpRequest http, ShareService svc, CancellationToken ct) =>
+            string token, string fileId, [FromBody] CompleteFileRequest body, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
         {
-            await svc.CompleteFileAsync(token, Owner(http), fileId, body, ct);
+            await svc.CompleteFileAsync(token, await OwnerAsync(http, sessions, ct), fileId, body, ct);
             return Results.NoContent();
         }).RequireRateLimiting("upload");
 
         // Optional: email the link. Owner-only, only once the link is live, and capped per link.
         shares.MapPost("/{token}/email", async (
-            string token, [FromBody] EmailShareRequest body, HttpRequest http, ShareService svc, CancellationToken ct) =>
-            Results.Ok(await svc.SendEmailsAsync(token, Owner(http), body, ct))).RequireRateLimiting("email");
+            string token, [FromBody] EmailShareRequest body, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
+            Results.Ok(await svc.SendEmailsAsync(token, await OwnerAsync(http, sessions, ct), body, ct))).RequireRateLimiting("email");
 
-        shares.MapPost("/{token}/finalize", async (string token, HttpRequest http, ShareService svc, CancellationToken ct) =>
+        shares.MapPost("/{token}/finalize", async (string token, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
         {
-            await svc.FinalizeAsync(token, Owner(http), ct);
+            await svc.FinalizeAsync(token, await OwnerAsync(http, sessions, ct), ct);
             return Results.NoContent();
         }).RequireRateLimiting("upload");
 
-        shares.MapDelete("/{token}", async (string token, HttpRequest http, ShareService svc, CancellationToken ct) =>
+        shares.MapDelete("/{token}", async (string token, HttpRequest http, Sessions sessions, ShareService svc, CancellationToken ct) =>
         {
-            await svc.DeleteAsync(token, Owner(http), ct);
+            await svc.DeleteAsync(token, await OwnerAsync(http, sessions, ct), ct);
             return Results.NoContent();
         }).RequireRateLimiting("upload");
 
@@ -97,5 +107,7 @@ public static class ShareEndpoints
             Results.Ok(await svc.DownloadAsync(token, body, ct))).RequireRateLimiting("password");
     }
 
-    private static string? Owner(HttpRequest http) => http.Headers[OwnerHeader].FirstOrDefault();
+    /// <summary>The signed-in owner may act on any of their links; otherwise the link's own owner key is needed.</summary>
+    private static async Task<OwnerAuth> OwnerAsync(HttpRequest http, Sessions sessions, CancellationToken ct) =>
+        await sessions.GetAsync(http, ct) is not null ? OwnerAuth.SignedIn : http.Headers[OwnerHeader].FirstOrDefault();
 }

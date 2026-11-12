@@ -219,4 +219,105 @@ public class PasskeyApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var res = await http.PostAsync("/api/auth/login/begin", null);
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
+
+    // --- one app across devices: signed-in access to links ---
+
+    private record Created(string Token, string OwnerKey, List<CreatedFile> Files);
+    private record CreatedFile(string Id);
+
+    /// <summary>Create a one-file link as <paramref name="device"/>, upload it and make it live.</summary>
+    private async Task<Created> Publish(Device device, bool apiKey = false, bool finalize = true)
+    {
+        var res = await device.Send(HttpMethod.Post, "/api/shares",
+            new { files = new[] { new { name = "a.txt", size = 3 } }, expiresInDays = 7 }, apiKey: apiKey);
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var c = (await res.Content.ReadFromJsonAsync<Created>(new JsonSerializerOptions(JsonSerializerDefaults.Web)))!;
+        if (!finalize) return c;
+        factory.Storage.DeclaredSizes[factory.Store.Shares[c.Token].Files[0].StorageKey] = 3;
+        // the uploading itself is done with the link's owner key, as the page does while it uploads
+        async Task<HttpStatusCode> AsOwner(string path, object? body)
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, path) { Content = body is null ? null : JsonContent.Create(body) };
+            req.Headers.Add("X-Owner-Key", c.OwnerKey);
+            return (await _http.SendAsync(req)).StatusCode;
+        }
+        Assert.Equal(HttpStatusCode.NoContent, await AsOwner($"/api/shares/{c.Token}/files/{c.Files[0].Id}/complete", new { parts = new[] { new { partNumber = 1, eTag = "e" } } }));
+        Assert.Equal(HttpStatusCode.NoContent, await AsOwner($"/api/shares/{c.Token}/finalize", null));
+        return c;
+    }
+
+    private static async Task<string[]> Listed(Device d) =>
+        (await Json(await d.Send(HttpMethod.Get, "/api/shares"))).EnumerateArray().Select(x => x.GetProperty("token").GetString()!).ToArray();
+
+    [Fact]
+    public async Task A_signed_in_device_creates_links_without_the_access_key()
+    {
+        var (_, phone, _) = await Enrol();
+        var c = await Publish(phone); // no X-Api-Key anywhere
+        Assert.NotEmpty(c.Token);
+    }
+
+    [Fact]
+    public async Task The_sign_in_cookie_alone_is_not_enough_without_the_csrf_header()
+    {
+        var (_, phone, _) = await Enrol();
+        var res = await phone.Send(HttpMethod.Post, "/api/shares", new { files = new[] { new { name = "a.txt", size = 3 } }, expiresInDays = 7 }, csrf: false);
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_link_made_on_one_device_shows_up_on_another_once_it_is_live()
+    {
+        var (phone, laptop, _) = await Enrol("Laptop");
+        var other = NewDevice();
+        await SignIn(phone, other);
+
+        var draft = await Publish(laptop, finalize: false);
+        Assert.DoesNotContain(draft.Token, await Listed(other)); // still uploading: not listed yet
+
+        var live = await Publish(laptop);
+        var seen = await Listed(other);
+        Assert.Contains(live.Token, seen);
+        Assert.DoesNotContain(draft.Token, seen);
+    }
+
+    [Fact]
+    public async Task Any_signed_in_device_can_delete_or_email_a_link_it_did_not_create()
+    {
+        var (phone, laptop, _) = await Enrol("Laptop");
+        var other = NewDevice();
+        await SignIn(phone, other);
+        var c = await Publish(laptop);
+
+        var sent = await other.Send(HttpMethod.Post, $"/api/shares/{c.Token}/email", new { recipients = new[] { "a@example.com" } });
+        Assert.Equal(HttpStatusCode.OK, sent.StatusCode); // no owner key on this device
+
+        Assert.Equal(HttpStatusCode.NoContent, (await other.Send(HttpMethod.Delete, $"/api/shares/{c.Token}")).StatusCode);
+        Assert.DoesNotContain(c.Token, await Listed(laptop)); // gone from the list everywhere
+        Assert.Equal(HttpStatusCode.NotFound, (await NewDevice().Send(HttpMethod.Get, $"/api/shares/{c.Token}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Without_signing_in_the_list_and_other_peoples_links_stay_closed()
+    {
+        var (_, laptop, _) = await Enrol();
+        var c = await Publish(laptop);
+        var stranger = NewDevice();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await stranger.Send(HttpMethod.Get, "/api/shares")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await stranger.Send(HttpMethod.Delete, $"/api/shares/{c.Token}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await stranger.Send(HttpMethod.Get, "/api/shares", apiKey: true)).StatusCode); // the access key still works (scripts)
+    }
+
+    [Fact]
+    public async Task A_link_made_with_just_the_access_key_still_works_the_old_way()
+    {
+        var c = await Publish(NewDevice(), apiKey: true);
+        var owner = NewDevice();
+        var res = await owner.Send(HttpMethod.Delete, $"/api/shares/{c.Token}");
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode); // no sign-in and no owner key
+        var withKey = new HttpRequestMessage(HttpMethod.Delete, $"/api/shares/{c.Token}");
+        withKey.Headers.Add("X-Owner-Key", c.OwnerKey);
+        Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(withKey)).StatusCode);
+    }
 }
