@@ -109,14 +109,12 @@ Open http://localhost:8080 with the access key `dev-access-key-change-me`.
 
 ## Status
 
-Deployed and running: the API on a Lightsail server behind Caddy, S3 and DynamoDB, Terraform with remote state,
-S3-only downloads. Tested by 213 API tests, 97 web tests, a browser test of the demo, Terraform and script tests,
-and an end-to-end smoke test against the live site.
+Deployed and in daily use on AWS: the API on a Lightsail server behind Caddy, S3 and DynamoDB, CloudFront
+downloads, SES email, passkey sign-in, Terraform with remote state. Tested by 213 API tests, 97 web tests, browser
+tests of the demo and of passkey sign-in, Terraform and script tests, and an end-to-end smoke test.
 
-Not yet exercised against real services: emailing links (it needs the SES setup in [docs/EMAIL.md](docs/EMAIL.md)), the
-CloudFront path (AWS is verifying the account) and the Cloudflare Tunnel option.
-
-Next: zips are streamed through the server, so heavy use would want a Lambda that zips next to S3.
+The Cloudflare Tunnel way of exposing it (an alternative to Caddy) is documented but hasn't been run against the
+real service.
 
 ## Branding
 
