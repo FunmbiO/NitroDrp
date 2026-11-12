@@ -26,9 +26,9 @@ export function Layout() {
       )}
       {!EMBED && (
         <header className="header">
-          <Link to="/" className="brand">
+          <Link to="/" className="brand" aria-label="NitroDrp, home">
             <LogoMark />
-            NitroDrp
+            <span className="wordmark" aria-hidden="true">NITRO<mark>DRP</mark></span>
           </Link>
           {!isRecipient && (signedIn || !status?.passkeysEnabled) && (
             <nav className="nav">

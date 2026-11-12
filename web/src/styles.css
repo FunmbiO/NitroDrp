@@ -42,6 +42,8 @@ a:hover { color: var(--lime-hover); }
 .header { max-width: 1120px; margin: 0 auto; padding: 24px 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font: 600 22px var(--mono); letter-spacing: -0.02em; }
 .brand:hover { color: var(--ink); }
+.wordmark { font-weight: 700; }
+.wordmark mark { padding: 0 5px; margin-left: 4px; }
 .nav-link { font: 700 14px var(--mono); text-decoration: none; padding: 10px 4px; }
 .page { max-width: 1120px; margin: 0 auto; padding: 24px 40px 80px; display: flex; flex-direction: column; gap: 32px; }
 .page.narrow { max-width: 640px; padding-inline: 24px; }
