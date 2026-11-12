@@ -15,6 +15,8 @@ browser, so nothing is uploaded. ([How the demo works](docs/DEMO.md))
 | ![Upload screen: drop files, choose expiry, password and download limit](docs/screenshots/1-upload.png) | ![Link created, with a summary of its settings](docs/screenshots/2-link-created.png) |
 | **Receive** | **On a phone** |
 | ![Recipient page with download-all and per-file buttons](docs/screenshots/3-download.png) | ![The recipient page on a phone](docs/screenshots/4-mobile.png) |
+| **Email the link (optional)** | |
+| ![Optional email section on the upload screen](docs/screenshots/5-email.png) | |
 
 ## Highlights
 

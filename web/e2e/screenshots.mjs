@@ -29,6 +29,15 @@ await page.setInputFiles('input[type=file]', files)
 await page.waitForSelector('text=Album-Proofs.pdf')
 await page.screenshot({ path: join(OUT, '1-upload.png') })
 
+// 1b. the optional "send by email" section, filled in
+await page.check('text=Also send the link by email')
+await page.fill('#up-to', 'client@example.com')
+await page.fill('#up-name', 'Amina')
+await page.fill('#up-msg', 'Here are the final photos. Let me know if anything is missing.')
+await page.locator('#up-to').scrollIntoViewIfNeeded()
+await page.screenshot({ path: join(OUT, '5-email.png') })
+await page.uncheck('text=Also send the link by email')
+
 // 2. link created
 await page.click('button[type=submit]')
 await page.waitForURL('**/created/**')
@@ -54,4 +63,4 @@ await mobile.waitForSelector('text=Download all as .zip')
 await mobile.screenshot({ path: join(OUT, '4-mobile.png') })
 
 await browser.close()
-console.log(`Wrote 4 screenshots to ${OUT}`)
+console.log(`Wrote 5 screenshots to ${OUT}`)

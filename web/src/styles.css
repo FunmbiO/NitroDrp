@@ -151,7 +151,7 @@ html[data-embed] h1 { font-size: 32px; }
 html[data-embed] #root { min-height: 0; } /* an embedded page must be able to shrink to its content */
 
 /* Send by email */
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: end; }
 @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
 textarea.input { resize: vertical; min-height: 44px; font: inherit; }
 .email-card { border-top: 1px solid var(--line); padding-top: 20px; }
