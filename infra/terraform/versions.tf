@@ -10,4 +10,10 @@ terraform {
 
 provider "aws" {
   region = var.region
+
+  # The AWS console tags an IAM user with each access key's description, using the key id as the tag name
+  # (AKIA...). Terraform doesn't manage those, so without this every plan tries to remove them.
+  ignore_tags {
+    key_prefixes = ["AKIA"]
+  }
 }
