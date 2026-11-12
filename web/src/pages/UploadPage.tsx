@@ -9,6 +9,8 @@ import { matchFiles, sigOf } from '../lib/resume'
 import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
 import { DEMO } from '../lib/config'
 import { useAuth } from '../lib/auth'
+import { HeroScene } from '../loader/HeroScene'
+import { EMBED } from '../lib/config'
 import { putPart } from '../lib/transport'
 import { uploadParts, type UploadedPart } from '../lib/upload'
 import { CheckIcon, CloseIcon, FileIcon, UploadIcon } from '../components/Icons'
@@ -218,12 +220,15 @@ export function UploadPage() {
 
   return (
     <main className="page">
-      <div className="stack" style={{ gap: 8 }}>
-        <div className="prompt">$ nitrodrp send --private</div>
-        <h1>
-          Send files, <mark>privately</mark>.<span className="cursor" aria-hidden="true" />
-        </h1>
-        <p className="lede">Upload, set an expiry, share one link. Files are deleted automatically when it runs out.</p>
+      <div className="hero">
+        <div className="stack" style={{ gap: 8 }}>
+          <div className="prompt">$ nitrodrp send --private</div>
+          <h1>
+            Send files, <mark>privately</mark>.<span className="cursor" aria-hidden="true" />
+          </h1>
+          <p className="lede">Upload, set an expiry, share one link. Files are deleted automatically when it runs out.</p>
+        </div>
+        {!EMBED && <HeroScene />}
       </div>
 
       <div className="layout">
