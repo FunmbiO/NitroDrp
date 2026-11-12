@@ -8,15 +8,15 @@ const SKY = ['#08060c', '#0c0914', '#110b1e', '#170e29', '#1e1235', '#27163f', '
 const ROAD = '#1a1822'
 const DASH = '#6b6880'
 
-export function spriteCanvas(rows: Rows): HTMLCanvasElement {
+export function spriteCanvas(rows: Rows, palette: Record<string, string> = PALETTE): HTMLCanvasElement {
   const c = document.createElement('canvas')
   c.width = Math.max(...rows.map((r) => r.length))
   c.height = rows.length
   const g = c.getContext('2d')!
   rows.forEach((row, y) =>
     [...row].forEach((ch, x) => {
-      if (ch === '.' || !PALETTE[ch]) return
-      g.fillStyle = PALETTE[ch]
+      if (ch === '.' || !palette[ch]) return
+      g.fillStyle = palette[ch]
       g.fillRect(x, y, 1, 1)
     }),
   )
