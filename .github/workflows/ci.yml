@@ -58,7 +58,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash dev/test-setup-env.sh
-      - run: python3 -m py_compile dev/smoke.py dev/ratelimit-check.py
+      - run: python3 -m py_compile dev/smoke.py dev/ratelimit-check.py dev/check-links.py
+      - run: python3 dev/check-links.py --self-test
+      - name: Every relative link and anchor in the docs resolves
+        run: python3 dev/check-links.py
 
   terraform:
     runs-on: ubuntu-latest
