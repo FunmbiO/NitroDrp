@@ -10,7 +10,9 @@ export const HEIGHT_MESSAGE = 'nitrodrp:height'
 export function useEmbedAutoHeight() {
   useEffect(() => {
     if (!EMBED || window.parent === window) return
-    const post = () => window.parent.postMessage({ type: HEIGHT_MESSAGE, height: document.documentElement.scrollHeight }, '*')
+    // offsetHeight is the page's own content height. scrollHeight is never smaller than the viewport, which in an
+    // iframe is the frame's current height, so using it the frame could grow but never shrink back.
+    const post = () => window.parent.postMessage({ type: HEIGHT_MESSAGE, height: document.documentElement.offsetHeight }, '*')
     const observer = new ResizeObserver(post)
     observer.observe(document.body)
     post()
