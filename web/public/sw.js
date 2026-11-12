@@ -5,7 +5,8 @@
 // requests. Those always go straight to the network, so nothing private is ever stored by the app.
 //
 // To force every phone to drop its saved copy after a release that needs it, bump VERSION.
-const VERSION = 'v1'
+// (v2: the new logo. Icons are kept in the saved copy, so without a bump phones would keep showing the old one.)
+const VERSION = 'v2'
 const SHELL = `nitrodrp-shell-${VERSION}` // the page itself
 const ASSETS = `nitrodrp-assets-${VERSION}` // the hashed script/style files and icons
 
