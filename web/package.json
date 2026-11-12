@@ -15,7 +15,8 @@
     "mock": "node mock/server.mjs",
     "e2e:demo": "node e2e/demo.mjs",
     "e2e:passkeys": "node e2e/passkeys.mjs",
-    "screenshots": "node e2e/screenshots.mjs"
+    "screenshots": "node e2e/screenshots.mjs",
+    "record": "node e2e/record-demo.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
