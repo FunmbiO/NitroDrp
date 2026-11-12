@@ -5,11 +5,11 @@ import { startLoader } from './start'
 const WIDE = '(min-width: 900px)'
 
 /**
- * The pixel racer, running its loop in a frame at the top right of the upload page, in the space beside the headline.
- * Decoration only: hidden from screen readers, not drawn at all on narrow screens (so phones don't spend battery on
+ * The pixel racer, running its loop in a frame at the top right of the upload page, in the space beside the headline,
+ * and (with `always`) at the top of the welcome page. Decoration only: hidden from screen readers, not drawn at all on narrow screens (so phones don't spend battery on
  * it), and a still picture for anyone who has asked for less motion.
  */
-export function HeroScene() {
+export function HeroScene({ always = false }: { always?: boolean } = {}) {
   const canvas = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -18,8 +18,9 @@ export function HeroScene() {
     const wide = matchMedia(WIDE)
     let stop: (() => void) | undefined
     const sync = () => {
-      if (wide.matches && !stop) stop = startLoader(el, { scale: 2 })
-      if (!wide.matches && stop) {
+      const show = always || wide.matches // the welcome page always shows it; the upload page only on wide screens
+      if (show && !stop) stop = startLoader(el, { scale: 2 })
+      if (!show && stop) {
         stop()
         stop = undefined
       }
@@ -33,7 +34,7 @@ export function HeroScene() {
   }, [])
 
   return (
-    <div className="hero-scene" aria-hidden="true">
+    <div className={`hero-scene${always ? ' always' : ''}`} aria-hidden="true">
       <canvas ref={canvas} />
     </div>
   )
