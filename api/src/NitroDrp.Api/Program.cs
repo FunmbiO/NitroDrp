@@ -108,6 +108,9 @@ if (opts.Dynamo.AutoCreateTable)
 if (opts.S3.AutoCreateBucket)
     await app.Services.GetRequiredService<S3FileStorage>().EnsureBucketAsync(CancellationToken.None);
 
+if (opts.Email.Enabled && opts.Email.AutoCreateIdentity)
+    await app.Services.GetRequiredService<SesEmailSender>().EnsureIdentityAsync(opts.Email.FromAddress![(opts.Email.FromAddress!.IndexOf('@') + 1)..], CancellationToken.None);
+
 app.MapShareEndpoints();
 app.Run();
 

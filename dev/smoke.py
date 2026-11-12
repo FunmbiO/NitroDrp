@@ -90,5 +90,23 @@ check(all(hashlib.sha256(z.read(n)).digest() == hashlib.sha256(d).digest() for n
 
 _, view = call("GET", f"/shares/{token}")
 check(view["downloadsRemaining"] == 3, "download counter: 1 file + 1 zip = 2 used")
+# Email the link (needs email enabled; the dev stack uses moto's SES, which records what it "sent").
+status, cfg = call("GET", "/config")
+check(status == 200 and "emailEnabled" in cfg, "config endpoint answers")
+if cfg["emailEnabled"]:
+    body = {"recipients": ["friend@example.com", "Friend@Example.com", "other@example.com"], "message": "smoke test", "senderName": "Smoke", "senderEmail": "me@example.com"}
+    check(call("POST", f"/shares/{token}/email", body)[0] == 403, "emailing without the owner key is refused")
+    status, res = call("POST", f"/shares/{token}/email", body, owner)
+    check(status == 200 and [r["sent"] for r in res["results"]] == [True, True], "emailed 2 recipients (duplicate dropped)")
+    check(res["remaining"] == int(cfg["maxRecipientsPerShare"]) - 2, "lifetime allowance went down by 2")
+    check(call("POST", f"/shares/{token}/email", {"recipients": ["not-an-address"]}, owner)[0] == 400, "a bad address is a 400")
+    moto = os.environ.get("MOTO_DATA_URL")  # optional: e.g. http://localhost:5000/moto-api/data.json, if you expose moto
+    if moto:
+        sent = json.loads(get(moto)).get("ses", {}).get("Message", [])
+        mails = [m for m in sent if token in json.dumps(m)]
+        check(len(mails) == 2 and all("smoke test" in json.dumps(m) for m in mails), "the emulator recorded both messages with the link")
+else:
+    print("SKIP email (not enabled on this server)")
+
 check(call("DELETE", f"/shares/{token}", None, owner)[0] == 204 and call("GET", f"/shares/{token}")[0] == 404, "deleted; link now 404s")
 print("\nAll checks passed.")
