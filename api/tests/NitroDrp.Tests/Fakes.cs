@@ -32,6 +32,16 @@ public sealed class InMemoryShareStore : IShareStore
         }
     }
 
+    public Task<bool> TryReserveEmailsAsync(string token, int count, int cap, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (!Shares.TryGetValue(token, out var s) || s.EmailsSent + count > cap) return Task.FromResult(false);
+            s.EmailsSent += count;
+            return Task.FromResult(true);
+        }
+    }
+
     public Task DeleteAsync(string token, CancellationToken ct) { lock (_gate) Shares.Remove(token); return Task.CompletedTask; }
 }
 

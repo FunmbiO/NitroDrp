@@ -16,6 +16,9 @@ public sealed class Share
     public int DownloadLimit { get; init; }
     public int DownloadCount { get; set; }
 
+    /// <summary>How many emails this link has sent, counted against a hard cap so one link can't be used to spam.</summary>
+    public int EmailsSent { get; set; }
+
     /// <summary>SHA-256 of the owner key handed to the uploader. Lets them upload, finalize and delete.</summary>
     public required string OwnerKeyHash { get; init; }
 

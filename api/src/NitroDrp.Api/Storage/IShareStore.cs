@@ -16,5 +16,11 @@ public interface IShareStore
     /// </summary>
     Task<bool> TryRegisterDownloadAsync(string token, DateTimeOffset now, CancellationToken ct);
 
+    /// <summary>
+    /// Atomically reserves `count` emails against the share's lifetime cap. Returns false, changing nothing, if that
+    /// would go over `cap` (so concurrent requests can't exceed it, like the download limit).
+    /// </summary>
+    Task<bool> TryReserveEmailsAsync(string token, int count, int cap, CancellationToken ct);
+
     Task DeleteAsync(string token, CancellationToken ct);
 }

@@ -71,6 +71,7 @@ public sealed class DynamoShareStore(IAmazonDynamoDB db, DynamoOptions options) 
             PasswordHash = meta.TryGetValue("passwordHash", out var ph) ? ph.S : null,
             DownloadLimit = (int)Num(meta, "downloadLimit"),
             DownloadCount = (int)Num(meta, "downloadCount"),
+            EmailsSent = meta.ContainsKey("emailsSent") ? (int)Num(meta, "emailsSent") : 0, // absent on links made before this existed
             OwnerKeyHash = meta["ownerKeyHash"].S,
             Files = resp.Items
                 .Where(i => i["sk"].S.StartsWith(FilePrefix, StringComparison.Ordinal))
@@ -130,6 +131,27 @@ public sealed class DynamoShareStore(IAmazonDynamoDB db, DynamoOptions options) 
                     [":now"] = N(now.ToUnixTimeSeconds()),
                     [":active"] = S(nameof(ShareStatus.Active)),
                 },
+            }, ct);
+            return true;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> TryReserveEmailsAsync(string token, int count, int cap, CancellationToken ct)
+    {
+        try
+        {
+            await db.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = _table,
+                Key = Key(token, Meta),
+                UpdateExpression = "ADD emailsSent :n",
+                // emailsSent + n <= cap, written as emailsSent <= cap - n because the expression has no arithmetic
+                ConditionExpression = "attribute_exists(pk) AND (attribute_not_exists(emailsSent) OR emailsSent <= :room)",
+                ExpressionAttributeValues = new() { [":n"] = N(count), [":room"] = N(cap - count) },
             }, ct);
             return true;
         }
@@ -215,6 +237,7 @@ public sealed class DynamoShareStore(IAmazonDynamoDB db, DynamoOptions options) 
             ["ttl"] = N((s.ExpiresAt + TtlGrace).ToUnixTimeSeconds()),
             ["downloadLimit"] = N(s.DownloadLimit),
             ["downloadCount"] = N(s.DownloadCount),
+            ["emailsSent"] = N(s.EmailsSent),
             ["ownerKeyHash"] = S(s.OwnerKeyHash),
         };
         if (s.PasswordHash is not null) item["passwordHash"] = S(s.PasswordHash);
