@@ -13,11 +13,17 @@ import { RequireSignIn } from './components/RequireSignIn'
 import { EMBED } from './lib/config'
 import './styles.css'
 import { useEffect } from 'react'
+import { currentSplashMs, splashRemaining } from './loader/splash'
 
-/** Takes the first loading screen away once the app has put its own first screen on the page. */
+/**
+ * Takes the first loading screen away once the app is ready *and* the animation has had its moment (see splash.ts).
+ * The app itself is already drawn underneath, hidden, so it appears the instant the screen goes.
+ */
 function BootCleanup() {
   useEffect(() => {
-    document.getElementById('boot')?.remove()
+    const wait = splashRemaining(currentSplashMs(EMBED), performance.now())
+    const id = setTimeout(() => document.getElementById('boot')?.remove(), wait)
+    return () => clearTimeout(id)
   }, [])
   return null
 }
