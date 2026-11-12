@@ -5,12 +5,13 @@ import { FPS, H, W } from './timeline'
 export const STILL_AT = 1.25
 
 /**
- * Starts the animation on a canvas and returns a function that stops it.
+ * Starts the animation on a canvas and returns a function that stops it. `options.scale` fixes the size (whole
+ * numbers only); without it the canvas fills the space it has.
  *
  * The clock is the page's own (time since it started loading), not "time since this loader appeared", so when the
  * first loader hands over to the next one the car carries on from where it was instead of starting again.
  */
-export function startLoader(canvas: HTMLCanvasElement): () => void {
+export function startLoader(canvas: HTMLCanvasElement, options: { scale?: number } = {}): () => void {
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
   canvas.width = W
@@ -20,8 +21,9 @@ export function startLoader(canvas: HTMLCanvasElement): () => void {
 
   // Whole-number scaling only, so every art pixel stays a crisp square.
   const fit = () => {
+    // A fixed scale for decorative uses (like the page header); otherwise as big as fits, up to 4x.
     const room = Math.min(window.innerWidth - 48, 640)
-    const scale = Math.max(1, Math.min(4, Math.floor(room / W)))
+    const scale = options.scale ?? Math.max(1, Math.min(4, Math.floor(room / W)))
     canvas.style.width = `${W * scale}px`
     canvas.style.height = `${H * scale}px`
   }
