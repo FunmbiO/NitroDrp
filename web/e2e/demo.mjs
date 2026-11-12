@@ -342,6 +342,38 @@ try {
   ok(Date.now() - qStart < 2500, 'automated browsers are not held up by the splash')
   await quick.close()
 
+  // the space at the top right of the upload page: the racer, on wide screens only
+  const heroCtx = await browser.newContext({ viewport: { width: 1240, height: 700 } })
+  const hp = await heroCtx.newPage()
+  await hp.goto(`${BASE}/`)
+  await hp.waitForSelector('.hero-scene canvas', { state: 'visible' })
+  const heroBox = await hp.locator('.hero-scene').boundingBox()
+  const textBox = await hp.locator('.hero h1').boundingBox()
+  ok(heroBox.x > textBox.x + textBox.width && heroBox.x + heroBox.width <= 1240, 'the racer sits to the right of the headline, inside the page')
+  const heroSnap = () => hp.evaluate(() => {
+    const c = document.querySelector('.hero-scene canvas')
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+    const colours = new Set()
+    let hash = 0
+    for (let i = 0; i < d.length; i += 4) {
+      colours.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+      hash = (hash * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) | 0
+    }
+    return { colours: colours.size, hash }
+  })
+  const h1 = await heroSnap()
+  await hp.waitForTimeout(450)
+  const h2 = await heroSnap()
+  ok(h1.colours > 25 && h1.hash !== h2.hash, 'it is a drawn, moving scene')
+  ok((await hp.locator('.hero-scene').getAttribute('aria-hidden')) === 'true', 'and it is hidden from screen readers (decoration)')
+  await heroCtx.close()
+  const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 800 } })
+  const pp = await phoneCtx.newPage()
+  await pp.goto(`${BASE}/`)
+  await pp.waitForSelector('.hero')
+  ok(!(await pp.locator('.hero-scene').isVisible()), 'on a phone the space is left alone')
+  await phoneCtx.close()
+
   // built-in example links
   await r.goto(`${BASE}/d/demo1234abcd`)
   await r.waitForSelector('text=Download all as .zip')
