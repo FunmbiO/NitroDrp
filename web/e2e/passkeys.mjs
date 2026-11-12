@@ -110,6 +110,22 @@ try {
   await A.page.waitForSelector('text=Nothing here yet')
   ok(true, 'deleted on B, gone from A')
 
+  // ---- an in-app loader that has appeared lingers a moment, even if the data arrives sooner ----
+  const slowLink = await publish(A.context)
+  const slow = await A.context.newPage()
+  await slow.route(`**/api/shares/${slowLink.token}`, async (route) => {
+    await new Promise((r) => setTimeout(r, 700)) // the link details arrive after 0.7 s
+    await route.continue()
+  })
+  const began = Date.now()
+  await slow.goto(`${BASE}/d/${slowLink.token}`, { waitUntil: 'commit' })
+  await slow.waitForSelector('.pixel-loader')
+  await slow.waitForTimeout(Math.max(0, 1250 - (Date.now() - began)))
+  ok((await slow.locator('.pixel-loader').count()) === 1 && (await slow.locator('.dl-row').count()) === 0, 'a loader that has appeared stays up a moment, even though the data has already arrived')
+  await slow.waitForSelector('.dl-row', { timeout: 8000 })
+  ok((await slow.locator('.pixel-loader').count()) === 0, 'then the page appears')
+  await slow.close()
+
   // ---- devices page ----
   await A.page.goto(`${BASE}/devices`)
   await A.page.waitForSelector('text=Test laptop')

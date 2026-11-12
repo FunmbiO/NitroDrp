@@ -79,6 +79,8 @@ A pixel racer drawn in code (`web/src/loader/`), shown while the app loads:
 | `start.ts` | Runs it at 20 frames a second, scales it in whole-number steps so pixels stay square, and shows a still frame under "reduce motion". |
 | `boot.ts` | The first screen. The build (`inlineBoot` in `vite.config.ts`) puts it **inside `index.html`**, so it runs before the main bundle has downloaded. |
 | `PixelLoader.tsx` | The same animation for in-app loading states. It fades in after 0.3 s, so quick loads never flash it. |
+| `splash.ts` | How long the first screen stays up: **3 seconds** from when the page started loading (change `SPLASH_MS`), so the animation gets to show the first NOS grab and the boost even when the app is ready sooner. A slow load gets no extra wait. Skipped in automated browsers, in embeds and under "reduce motion". Try other lengths with `?splash=1500` on the address. |
+| `useMinimumLoading.ts` | Once an in-app loader has appeared, keeps it up for at least 1.4 s, so it never flashes for a split second. |
 
 Both use the page's own clock, so the handover from the first screen to an in-app loader carries on mid-stunt. Change
 the look in `sprites.ts` and `scene.ts`, the timing in `timeline.ts`. Tests: `src/loader/loader.test.ts` (the art is
