@@ -10,16 +10,24 @@ key sat in the browser's storage.
 
 ## How it works for you
 
-1. **First device:** open the site. It says "Set up this device". Type the access key **once** and give the device
+0. **Strangers see a welcome page.** Anyone who isn't signed in as you, at any address on the site, sees "Hi, welcome!"
+   with a note that this is your private app and a link to the demo. There's no sign-in form, no menu and no app. (Download
+   links still open for whoever was sent them, and so does the paste-a-link page.)
+1. **First device:** go to **`/owner`** (for example `https://drop.jadedmedia.ca/owner`; there's also a small "Owner
+   sign-in" link under the welcome note). It says "Set up this device". Type the access key **once** and give the device
    a name. The device creates a passkey (Face ID, fingerprint or PIN) and you're signed in.
 2. **Your other devices:** if you use **iCloud Keychain** (Apple) or **Google Password Manager** (Android, Chrome),
    the passkey is already there. Open the site and tap **Sign in with a passkey**. Otherwise, on the new device
    choose "New device, or no passkey here? Set it up", type the access key once, and it gets its own passkey.
-3. **Every day:** the app stays signed in for **90 days, renewed each time you use it**. If you go 90 days without
+3. **Every day:** open the site and you're straight in: the app stays signed in for **90 days, renewed each time you use it**. If you go 90 days without
    opening it, you tap **Sign in with a passkey** again.
 
 The **Devices** page (in the top menu once you're signed in) lists your passkeys, adds one for the device in your
 hand, removes any of them, and signs this device out.
+
+Whose name and which demo the welcome page shows are set when the web app is built: `VITE_OWNER_NAME` (default
+`Funmbi`) and `VITE_DEMO_URL` (default `https://demo.jadedmedia.ca`). The welcome page is tidiness, not the security:
+the server refuses strangers whatever the page shows (see [SECURITY.md](SECURITY.md)).
 
 ## The access key doesn't go away
 
@@ -30,8 +38,10 @@ It's the owner's master secret and recovery key:
 - Scripts such as `dev/smoke.py` can still create links with it.
 - **Changing `API_KEY` signs every device out** (the sign-in cookie is signed with a key derived from it). Do that
   if you think a device was stolen. Devices then sign in again with their passkeys.
-- A browser that can't use passkeys has "Use the access key without a passkey" on the sign-in screen: the page then
-  works the old way and asks for the key on the upload page.
+- A browser that can't use passkeys (or anyone who prefers it) has "Use the access key without a passkey" on the
+  sign-in screen. It asks for the key and **checks it with the server first**: nothing opens until the server says
+  it's right, and it isn't remembered, so a reload asks again. Then the upload page works the old way and sends the
+  key with each link.
 
 ## Turn it on
 

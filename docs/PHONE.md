@@ -17,7 +17,7 @@ The demo site is installable the same way.
 ## Good to know
 
 - **Sign in once.** An installed app keeps its own storage, separate from the browser, so the first time you open
-  it you sign in: with a passkey (Face ID or fingerprint, see [AUTH.md](AUTH.md)), or by typing the access key
+  it you see the welcome page: tap **Owner sign-in** (or go to `/owner`) and sign in: with a passkey (Face ID or fingerprint, see [AUTH.md](AUTH.md)), or by typing the access key
   once to set the phone up. After that it stays signed in. With passkeys on, your Recent links are the same on the
   phone as everywhere else.
 - **Keep the app open while uploading.** A phone may pause a page that's in the background. If an upload stops,

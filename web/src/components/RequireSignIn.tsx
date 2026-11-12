@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { SignInPage } from '../pages/SignInPage'
+import { WelcomePage } from '../pages/WelcomePage'
 import { PixelLoader } from '../loader/PixelLoader'
 
 /** The sender's pages. Recipients' download links are never behind this. */
@@ -24,5 +24,6 @@ export function RequireSignIn() {
   }
   // Passkeys are off on this server: the old way (the page asks for the access key) is the only way.
   if (!status.passkeysEnabled || signedIn || accessKeyMode) return <Outlet />
-  return <SignInPage />
+  // anyone else gets a friendly welcome and the demo, never the app or a sign-in form
+  return <WelcomePage />
 }

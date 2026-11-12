@@ -17,7 +17,7 @@ function guessDeviceName() {
 }
 
 export function SignInPage() {
-  const { status, refresh, useAccessKey } = useAuth()
+  const { status, refresh, enterWithAccessKey } = useAuth()
   const supported = passkeysSupported()
   const hasPasskeys = !!status?.hasPasskeys
   const [showSetup, setShowSetup] = useState(!hasPasskeys)
@@ -25,6 +25,22 @@ export function SignInPage() {
   const [name, setName] = useState(guessDeviceName)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // Using the access key without a passkey: the key is checked with the server before anything opens.
+  const [showKeyForm, setShowKeyForm] = useState(!supported)
+  const [plainKey, setPlainKey] = useState('')
+  const [keyBusy, setKeyBusy] = useState(false)
+  const [keyError, setKeyError] = useState('')
+
+  const continueWithKey = async () => {
+    setKeyBusy(true)
+    setKeyError('')
+    try {
+      await enterWithAccessKey(plainKey) // throws unless the server says the key is right
+    } catch (e) {
+      setKeyError(e instanceof ApiError && e.status === 401 ? "That access key isn't right." : e instanceof ApiError ? e.message : 'Could not check the key. Try again.')
+      setKeyBusy(false)
+    }
+  }
 
   const run = async (job: () => Promise<void>) => {
     setBusy(true)
@@ -96,7 +112,27 @@ export function SignInPage() {
 
         {error && <p className="error" role="alert">{error}</p>}
 
-        <button type="button" className="link-btn muted" onClick={useAccessKey}>Use the access key without a passkey</button>
+        {!showKeyForm ? (
+          <button type="button" className="link-btn muted" onClick={() => setShowKeyForm(true)}>Use the access key without a passkey</button>
+        ) : (
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void continueWithKey()
+            }}
+          >
+            <p className="muted" style={{ margin: 0 }}>
+              This uses the access key in this browser only. A passkey is safer and quicker when your device has one.
+            </p>
+            <div className="field">
+              <label htmlFor="ak-key">Access key</label>
+              <input id="ak-key" className="input" type="password" autoComplete="current-password" maxLength={MAX_SECRET} disabled={keyBusy} value={plainKey} onChange={(e) => { setPlainKey(e.target.value); setKeyError('') }} aria-invalid={!!keyError} />
+              {keyError && <span className="field-error" role="alert">{keyError}</span>}
+            </div>
+            <button type="submit" className="btn" disabled={keyBusy || plainKey.trim().length === 0}>{keyBusy ? 'Checking…' : 'Continue with the access key'}</button>
+          </form>
+        )}
       </div>
     </main>
   )

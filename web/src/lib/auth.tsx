@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, type AuthStatus } from './api'
+import { setApiKey } from './storage'
 
 interface AuthState {
   /** Null until the first answer arrives. */
@@ -8,26 +9,23 @@ interface AuthState {
   failed: boolean
   /** Signed in with a passkey (or running the demo, where everyone owns their own browser's links). */
   signedIn: boolean
-  /** The person chose to use the access key on this device instead of a passkey. */
+  /**
+   * Using the access key on this device instead of a passkey. Only ever true after the server has confirmed the key,
+   * and never remembered: a reload asks again.
+   */
   accessKeyMode: boolean
-  useAccessKey: () => void
+  /** Checks the key with the server. Resolves and switches the mode on if it's right; throws if it isn't. */
+  enterWithAccessKey: (key: string) => Promise<void>
   refresh: () => Promise<void>
   signOut: () => Promise<void>
 }
 
 const Ctx = createContext<AuthState | null>(null)
-const KEY_MODE = 'nitrodrp.accessKeyMode'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [failed, setFailed] = useState(false)
-  const [accessKeyMode, setMode] = useState(() => {
-    try {
-      return sessionStorage.getItem(KEY_MODE) === '1'
-    } catch {
-      return false
-    }
-  })
+  const [accessKeyMode, setMode] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -47,12 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       failed,
       signedIn: !!status?.signedIn,
       accessKeyMode,
-      useAccessKey: () => {
-        try {
-          sessionStorage.setItem(KEY_MODE, '1')
-        } catch {
-          /* fine: it just lasts until the next reload */
-        }
+      enterWithAccessKey: async (key: string) => {
+        await api.verifyAccessKey(key.trim()) // throws unless the server says it's right
+        setApiKey(key.trim()) // the upload page sends it with each link, as it always has in this mode
         setMode(true)
       },
       refresh,
