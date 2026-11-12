@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '../lib/api'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { api, type AppConfig, type EmailResponse, type EmailResult } from '../lib/api'
+import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
+import { parseRecipients } from '../lib/email'
 import { formatBytes, formatExpiry } from '../lib/format'
 import { findRecent, removeRecent } from '../lib/storage'
 import { CheckIcon } from '../components/Icons'
@@ -11,6 +13,17 @@ export function CreatedPage() {
   const share = findRecent(token)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const handedOver = (useLocation().state as { emailOutcome?: { response?: EmailResponse; error?: string } } | null)?.emailOutcome
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<EmailDraft>(emptyDraft)
+  const [sending, setSending] = useState(false)
+  const [emailError, setEmailError] = useState(handedOver?.error ?? '')
+  const [results, setResults] = useState<EmailResult[]>(handedOver?.response?.results ?? [])
+  const [remaining, setRemaining] = useState<number | null>(handedOver?.response?.remaining ?? null)
+  useEffect(() => {
+    api.getConfig().then(setConfig, () => setConfig(null))
+  }, [])
 
   if (!share) {
     return (
@@ -30,6 +43,30 @@ export function CreatedPage() {
       setCopied(true)
     } catch {
       setError('Copy failed. Select the link and copy it manually.')
+    }
+  }
+  const { valid } = parseRecipients(draft.recipients)
+  const problem = draftProblem(draft, config?.maxRecipientsPerRequest ?? 10)
+  const sendEmail = async () => {
+    setSending(true)
+    setEmailError('')
+    try {
+      const r = await api.sendEmail(token, share.ownerKey, {
+        recipients: valid,
+        message: draft.message.trim() || undefined,
+        senderName: draft.senderName.trim() || undefined,
+        senderEmail: draft.senderEmail.trim() || undefined,
+      })
+      setResults((prev) => [...r.results, ...prev])
+      setRemaining(r.remaining)
+      // Keep the addresses that failed so they can be fixed and retried; clear the ones that went out.
+      const failed = r.results.filter((x) => !x.sent).map((x) => x.email)
+      setDraft((d) => ({ ...d, recipients: failed.join(', ') }))
+      if (!failed.length) setOpen(false)
+    } catch (e) {
+      setEmailError(e instanceof Error ? e.message : 'The email could not be sent.')
+    } finally {
+      setSending(false)
     }
   }
   const del = async () => {
@@ -65,6 +102,41 @@ export function CreatedPage() {
           <div><span>Password</span><span>{share.passwordProtected ? 'On' : 'Off'}</span></div>
           <div><span>Downloads</span><span>{share.downloadLimit ? `up to ${share.downloadLimit}` : 'Unlimited'}</span></div>
         </div>
+
+        {config?.emailEnabled && (
+          <section className="email-card stack" aria-label="Send by email" style={{ gap: 14 }}>
+            <div className="row-between">
+              <h2 className="group-title" style={{ margin: 0 }}>Send by email</h2>
+              {!open && remaining !== 0 && (
+                <button type="button" className="btn outline" onClick={() => setOpen(true)}>{results.length ? 'Email more people' : 'Email this link'}</button>
+              )}
+            </div>
+            {results.length > 0 && (
+              <ul className="results" aria-live="polite">
+                {results.map((r, i) => (
+                  <li key={`${r.email}-${i}`} className={r.sent ? 'ok' : 'bad'}>
+                    <span>{r.email}</span>
+                    <span>{r.sent ? 'Sent' : r.error || 'Not sent'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {emailError && <p className="error" role="alert" style={{ margin: 0 }}>{emailError}</p>}
+            {remaining !== null && <p className="hint" style={{ margin: 0 }}>{remaining > 0 ? `You can email ${remaining} more ${remaining === 1 ? 'person' : 'people'} with this link.` : 'This link has reached its email limit. Copy the link to share it another way.'}</p>}
+            {open && (
+              <>
+                <EmailFields draft={draft} onChange={setDraft} idPrefix="cr" maxPerRequest={config.maxRecipientsPerRequest} disabled={sending} />
+                {config.simulated && <p className="hint" style={{ margin: 0 }}>Demo: no email is really sent.</p>}
+                <div className="actions">
+                  <button type="button" className="btn big" disabled={sending || !valid.length || !!problem} onClick={sendEmail}>
+                    {sending ? 'Sending…' : `Send to ${valid.length || ''} ${valid.length === 1 ? 'person' : 'people'}`.replace('  ', ' ')}
+                  </button>
+                  <button type="button" className="link-btn" disabled={sending} onClick={() => setOpen(false)}>Cancel</button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         <div className="actions">
           <Link to="/" className="btn outline">Send more files</Link>

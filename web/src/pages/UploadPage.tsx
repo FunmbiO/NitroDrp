@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../lib/api'
+import { api, ApiError, type AppConfig, type EmailResponse } from '../lib/api'
+import { EmailFields, draftProblem, emptyDraft, type EmailDraft } from '../components/EmailFields'
+import { parseRecipients } from '../lib/email'
 import { formatBytes } from '../lib/format'
 import { matchFiles, sigOf } from '../lib/resume'
 import { addRecent, clearPending, getApiKey, getPending, savePending, setApiKey, type PendingUpload } from '../lib/storage'
@@ -44,6 +46,19 @@ export function UploadPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [pending, setPending] = useState<PendingUpload | null>(getPending)
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [useEmail, setUseEmail] = useState(false)
+  const [draft, setDraft] = useState<EmailDraft>(emptyDraft)
+  useEffect(() => {
+    // Email is optional on the server; the section only shows when it is set up. A failed lookup just hides it.
+    api.getConfig().then(setConfig, () => setConfig(null))
+  }, [])
+  const emailing = useEmail && !!config?.emailEnabled
+  const emailProblem = emailing
+    ? parseRecipients(draft.recipients).valid.length === 0
+      ? 'Add at least one email address, or turn off sending by email.'
+      : draftProblem(draft, config?.maxRecipientsPerRequest ?? 10)
+    : ''
 
   // Resuming = the user re-picked exactly the files of an unfinished upload.
   const resumeMap = pending ? matchFiles(pending.files, items.map((i) => sigOf(i.file))) : null
@@ -155,7 +170,24 @@ export function UploadPage() {
         downloadLimit: info?.downloadLimit ?? null,
       })
       clearPending()
-      nav(`/created/${token}`)
+
+      // The link exists now, so a failed email must never lose it: report it on the next page instead.
+      let emailOutcome: { response?: EmailResponse; error?: string } | undefined
+      if (emailing) {
+        try {
+          emailOutcome = {
+            response: await api.sendEmail(token, ownerKey, {
+              recipients: parseRecipients(draft.recipients).valid,
+              message: draft.message.trim() || undefined,
+              senderName: draft.senderName.trim() || undefined,
+              senderEmail: draft.senderEmail.trim() || undefined,
+            }),
+          }
+        } catch (e) {
+          emailOutcome = { error: e instanceof Error ? e.message : 'The email could not be sent.' }
+        }
+      }
+      nav(`/created/${token}`, { state: { emailOutcome } })
     } catch (err) {
       if (ctl.signal.aborted) return // the user cancelled; cancel() already cleaned up
       // Keep the pending upload: the files are still selected, so the button turns into "Resume upload".
@@ -174,7 +206,7 @@ export function UploadPage() {
     await discardPending()
   }
 
-  const canSend = items.length > 0 && !busy && apiKey.trim().length > 0 && (resuming || !usePw || password.length > 0)
+  const canSend = items.length > 0 && !busy && apiKey.trim().length > 0 && (resuming || !usePw || password.length > 0) && !emailProblem
 
   return (
     <main className="page">
@@ -282,6 +314,21 @@ export function UploadPage() {
             <label htmlFor="limit">Download limit</label>
             <input id="limit" className="input" type="number" min={1} max={10000} placeholder="Unlimited" disabled={locked} value={limit} onChange={(e) => setLimit(e.target.value)} />
           </div>
+
+          {config?.emailEnabled && (
+            <div className="stack" style={{ gap: 12 }}>
+              <label className="check">
+                <input type="checkbox" checked={useEmail} disabled={busy} onChange={(e) => setUseEmail(e.target.checked)} />
+                <span>Also send the link by email</span>
+              </label>
+              {useEmail && (
+                <>
+                  <EmailFields draft={draft} onChange={setDraft} idPrefix="up" maxPerRequest={config.maxRecipientsPerRequest} disabled={busy} />
+                  {config.simulated && <p className="hint" style={{ margin: 0 }}>Demo: no email is really sent.</p>}
+                </>
+              )}
+            </div>
+          )}
 
           {!DEMO && (
             <div className="field">

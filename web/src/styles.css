@@ -149,3 +149,15 @@ html[data-embed] h1 { font-size: 32px; }
 .header, .page, .site-footer { width: 100%; }
 .page { flex: 1 0 auto; }
 html[data-embed] #root { min-height: 0; } /* an embedded page must be able to shrink to its content */
+
+/* Send by email */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+textarea.input { resize: vertical; min-height: 44px; font: inherit; }
+.email-card { border-top: 1px solid var(--line); padding-top: 20px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.results li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; word-break: break-all; }
+.results li span:last-child { flex: none; font-weight: 600; }
+.results li.ok span:last-child { color: var(--lime); }
+.results li.bad span:last-child { color: var(--pink); }

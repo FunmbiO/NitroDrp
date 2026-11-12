@@ -104,6 +104,8 @@ http.createServer(async (req, res) => {
       return zeroStream(res, f.size)
     }
 
+    if (m === 'GET' && p === '/api/config') return json(res, 200, { emailEnabled: true, maxRecipientsPerRequest: 10, maxRecipientsPerShare: 20 })
+
     if (m === 'POST' && p === '/api/shares') {
       if (!req.headers['x-api-key']) return fail(res, 401, 'bad_api_key', 'Wrong access key.')
       const b = await readJson(req)
@@ -136,6 +138,14 @@ http.createServer(async (req, res) => {
         const s = active(res, token); if (!s) return; const b = await readJson(req); if (!checkPassword(res, s, b.password)) return
         const targets = b.fileId ? s.files.filter((f) => f.id === b.fileId) : s.files; if (!targets.length) return fail(res, 404, 'file_not_found', "That file isn't part of this link.")
         s.count++; return json(res, 200, { files: targets.map((f) => ({ id: f.id, name: f.name, size: f.size, url: `/mock-storage/dl/${token}/${f.id}` })) })
+      }
+      if (m === 'POST' && rest === 'email') { // pretends to send: nothing leaves this process
+        const s = owned(req, res, token); if (!s) return; const b = await readJson(req)
+        const to = [...new Set((b.recipients || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean))]
+        if (!to.length) return fail(res, 400, 'no_recipients', 'Add at least one email address.')
+        const bad = to.find((x) => !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(x)); if (bad) return fail(res, 400, 'bad_email', `"${bad}" isn't a valid email address.`)
+        s.emailsSent = (s.emailsSent || 0) + to.length
+        return json(res, 200, { results: to.map((email) => ({ email, sent: true })), remaining: Math.max(0, 20 - s.emailsSent) })
       }
       if (m === 'POST' && rest === 'zip-link') {
         const s = active(res, token); if (!s) return; const b = await readJson(req); if (!checkPassword(res, s, b.password)) return
