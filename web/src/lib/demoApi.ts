@@ -195,6 +195,7 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
     async loginBegin() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
     async loginFinish() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
     async logout() {},
+    async verifyAccessKey() {},
     async passkeys() { return [] },
     async removePasskey() { throw new ApiError(404, 'passkeys_disabled', "Passkeys aren't available in the demo.") },
     async listMine(): Promise<ShareSummary[]> {

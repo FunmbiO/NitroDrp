@@ -110,6 +110,12 @@ const realApi = {
   logout: () => call<void>('POST', '/auth/logout'),
   passkeys: () => call<PasskeySummary[]>('GET', '/auth/passkeys'),
   removePasskey: (id: string) => call<void>('DELETE', `/auth/passkeys/${encodeURIComponent(id)}`),
+  /**
+   * Asks the server whether this is the access key. Resolves if it is, and throws a 401 if not. The page uses it
+   * before letting anyone into the app without a passkey: what the page shows is only ever a courtesy, and this is
+   * the question the server answers.
+   */
+  verifyAccessKey: (key: string) => call<ShareSummary[]>('GET', '/shares', { headers: { 'X-Api-Key': key } }).then(() => undefined),
   /** Every live link, newest first. Needs a sign-in (or the access key). */
   listMine: () => call<ShareSummary[]>('GET', '/shares'),
 
