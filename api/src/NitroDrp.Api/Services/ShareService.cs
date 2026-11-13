@@ -2,18 +2,28 @@ using Microsoft.Extensions.Options;
 using System.Net.Mail;
 using NitroDrp.Api.Domain;
 using NitroDrp.Api.Email;
+using NitroDrp.Api.Notifications;
 using NitroDrp.Api.Storage;
 
 namespace NitroDrp.Api.Services;
 
 /// <summary>All business rules live here so they can be tested without HTTP, S3 or DynamoDB.</summary>
 public sealed class ShareService(
-    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IEdgeCache edge, IEmailSender email, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock, ILogger<ShareService> log)
+    IShareStore store, IFileStorage storage, IDownloadLinkSigner links, IEdgeCache edge, IEmailSender email, ZipLinks zipLinks, IOptions<NitroDrpOptions> options, TimeProvider clock, ILogger<ShareService> log, INotifier? notifier = null)
 {
     private const int MaxS3Parts = 10_000;
     private const int MaxPartsPerPresign = 100;
     private const int MaxDownloadLimit = 10_000;
     private readonly NitroDrpOptions _o = options.Value;
+    private readonly INotifier _notify = notifier ?? new NoNotifier();
+
+    /// <summary>Tells the owner a download happened, and that the link is used up if that was the last one.</summary>
+    private void NotifyDownload(Share share, int countBefore)
+    {
+        _notify.Publish(NotificationKinds.Downloaded, share.Token);
+        if (share.DownloadLimit > 0 && countBefore + 1 >= share.DownloadLimit)
+            _notify.Publish(NotificationKinds.LimitReached, share.Token);
+    }
 
     public async Task<CreateShareResponse> CreateAsync(CreateShareRequest req, CancellationToken ct)
     {
@@ -184,8 +194,10 @@ public sealed class ShareService(
         if (targets.Count == 0) throw ServiceException.NotFound("file_not_found", "That file isn't part of this link.");
 
         // One download action (a single file, or "download all") counts as one download.
+        var countBefore = share.DownloadCount; // read first: some stores hand back the live object
         if (!await store.TryRegisterDownloadAsync(token, clock.GetUtcNow(), ct))
             throw ServiceException.Gone("limit_reached", "This link has reached its download limit.");
+        NotifyDownload(share, countBefore);
 
         var ttl = TimeSpan.FromMinutes(_o.S3.DownloadUrlMinutes);
         return new DownloadResponse(targets
@@ -198,8 +210,10 @@ public sealed class ShareService(
     {
         var share = await LoadActiveAsync(token, ct);
         RequirePassword(share, password);
+        var countBefore = share.DownloadCount; // read first: some stores hand back the live object
         if (!await store.TryRegisterDownloadAsync(token, clock.GetUtcNow(), ct))
             throw ServiceException.Gone("limit_reached", "This link has reached its download limit.");
+        NotifyDownload(share, countBefore);
         return new ZipLinkResponse(zipLinks.Create(token, TimeSpan.FromMinutes(_o.S3.DownloadUrlMinutes)));
     }
 
@@ -270,6 +284,7 @@ public sealed class ShareService(
                 results.Add(new EmailResult(to, false, "The email service refused this address, or couldn't send it."));
             }
         }
+        if (results.Any(r => !r.Sent)) _notify.Publish(NotificationKinds.EmailFailed, token, results.Count(r => !r.Sent));
         log.LogInformation("Emailed a share's link to {Count} recipients ({Sent} sent)", recipients.Count, results.Count(r => r.Sent));
         return new EmailShareResponse(results, Math.Max(0, cfg.MaxRecipientsPerShare - sentBefore - recipients.Count));
     }

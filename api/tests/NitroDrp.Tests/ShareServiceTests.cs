@@ -14,6 +14,7 @@ public class ShareServiceTests
     private readonly ManualClock _clock = new(new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero));
     private readonly RecordingEdgeCache _edge = new();
     private readonly ShareService _svc;
+    private readonly RecordingNotifier _notes = new();
 
     public ShareServiceTests()
     {
@@ -23,7 +24,7 @@ public class ShareServiceTests
             S3 = { PartSizeBytes = Part },
             Limits = { AllowedExpiryDays = [1, 7, 30], BlockedExtensions = ["exe"], MaxFiles = 3, MaxFileBytes = 1L << 30, MaxTotalBytes = 2L << 30 },
         };
-        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), _edge, new FakeEmailSender(), ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareService>.Instance);
+        _svc = new ShareService(_store, _storage, new S3DownloadLinkSigner(_storage), _edge, new FakeEmailSender(), ZipLinks.FromApiKey("test-api-key-aaaaaaaa", _clock), Options.Create(o), _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareService>.Instance, _notes);
     }
 
     private static CreateShareRequest Req(string? password = null, int? limit = null, int days = 7, params (string, long)[] files) =>
@@ -327,5 +328,37 @@ public class ShareServiceTests
         await _svc.DeleteAsync(created.Token, created.OwnerKey, default);
         Assert.Empty(_storage.Objects);
         Assert.False(_store.Shares.ContainsKey(created.Token));
+    }
+
+    [Fact]
+    public async Task Downloads_tell_the_owner_and_the_last_one_says_limit_reached()
+    {
+        var (created, _) = await Publish(Req(limit: 2, files: ("a.zip", 10)));
+        await _svc.DownloadAsync(created.Token, new DownloadRequest(null, null), default);
+        Assert.Equal([NitroDrp.Api.Notifications.NotificationKinds.Downloaded], _notes.Events.Select(e => e.Kind));
+        await _svc.DownloadAsync(created.Token, new DownloadRequest(null, null), default);
+        Assert.Equal(
+            [NitroDrp.Api.Notifications.NotificationKinds.Downloaded, NitroDrp.Api.Notifications.NotificationKinds.Downloaded, NitroDrp.Api.Notifications.NotificationKinds.LimitReached],
+            _notes.Events.Select(e => e.Kind));
+        await Assert.ThrowsAsync<ServiceException>(() => _svc.DownloadAsync(created.Token, new DownloadRequest(null, null), default));
+        Assert.Equal(3, _notes.Events.Count); // a refused download tells nobody
+    }
+
+    [Fact]
+    public async Task Zip_downloads_count_and_a_wrong_password_tells_nobody()
+    {
+        var (created, _) = await Publish(Req(password: "pw", files: ("a.zip", 10)));
+        await Assert.ThrowsAsync<ServiceException>(() => _svc.CreateZipLinkAsync(created.Token, "nope", default));
+        Assert.Empty(_notes.Events);
+        await _svc.CreateZipLinkAsync(created.Token, "pw", default);
+        Assert.Single(_notes.Events);
+    }
+
+    [Fact]
+    public async Task Unlimited_links_never_report_a_limit()
+    {
+        var (created, _) = await Publish(Req(files: ("a.zip", 10)));
+        for (var i = 0; i < 3; i++) await _svc.DownloadAsync(created.Token, new DownloadRequest(null, null), default);
+        Assert.DoesNotContain(_notes.Events, e => e.Kind == NitroDrp.Api.Notifications.NotificationKinds.LimitReached);
     }
 }

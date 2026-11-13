@@ -10,6 +10,7 @@ public sealed class ManualClock(DateTimeOffset start) : TimeProvider
     private DateTimeOffset _now = start;
     public override DateTimeOffset GetUtcNow() => _now;
     public void Advance(TimeSpan by) => _now += by;
+    public void Set(DateTimeOffset to) => _now = to;
 }
 
 public sealed class InMemoryShareStore : IShareStore
@@ -184,4 +185,10 @@ public sealed class FakePushTransport : NitroDrp.Api.Notifications.IPushTranspor
         lock (Sent) Sent.Add((sub.Endpoint, payloadJson));
         return Task.FromResult(Respond(sub));
     }
+}
+
+public sealed class RecordingNotifier : NitroDrp.Api.Notifications.INotifier
+{
+    public List<(string Kind, string? Token, int Count)> Events { get; } = [];
+    public void Publish(string kind, string? token, int count = 1) { lock (Events) Events.Add((kind, token, count)); }
 }

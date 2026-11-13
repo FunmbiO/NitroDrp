@@ -14,6 +14,7 @@ public class ShareEmailTests
     private readonly FakeEmailSender _mail = new();
     private readonly ManualClock _clock = new(new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero));
     private readonly ShareService _svc;
+    private readonly RecordingNotifier _notes = new();
 
     public ShareEmailTests() => _svc = Service(emailEnabled: true);
 
@@ -27,7 +28,7 @@ public class ShareEmailTests
             Email = { Enabled = emailEnabled, FromAddress = "transfers@example.com", MaxRecipientsPerRequest = 3, MaxRecipientsPerShare = 5 },
             Limits = { AllowedExpiryDays = [1, 7], BlockedExtensions = [] },
         }),
-        _clock, NullLogger<ShareService>.Instance);
+        _clock, NullLogger<ShareService>.Instance, _notes);
 
     /// <summary>The whole sender flow: create, upload, finalize.</summary>
     private async Task<CreateShareResponse> Publish(string? password = null, bool finalize = true)
@@ -205,5 +206,25 @@ public class ShareEmailTests
 
         await _svc.SendEmailsAsync(c.Token, c.OwnerKey, new EmailShareRequest(["a@example.com"], null, "Amina\r\nBcc: x@y.z", null), default);
         Assert.DoesNotContain('\n', _mail.Sent.Single().Subject);
+    }
+
+    [Fact]
+    public async Task A_refused_address_tells_the_owner_without_naming_it()
+    {
+        var c = await Publish();
+        _mail.Refuses.Add("bad@example.com");
+        await _svc.SendEmailsAsync(c.Token, c.OwnerKey, new EmailShareRequest(["ok@example.com", "bad@example.com"], null, null, null), default);
+        var e = Assert.Single(_notes.Events);
+        Assert.Equal(NitroDrp.Api.Notifications.NotificationKinds.EmailFailed, e.Kind);
+        Assert.Equal(1, e.Count);
+        Assert.DoesNotContain("example.com", System.Text.Json.JsonSerializer.Serialize(e));
+    }
+
+    [Fact]
+    public async Task Emails_that_all_send_tell_nobody()
+    {
+        var c = await Publish();
+        await _svc.SendEmailsAsync(c.Token, c.OwnerKey, new EmailShareRequest(["ok@example.com"], null, null, null), default);
+        Assert.Empty(_notes.Events);
     }
 }
