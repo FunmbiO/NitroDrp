@@ -7,6 +7,7 @@ Running, testing and changing NitroDrp. How it's built: [ARCHITECTURE.md](ARCHIT
 
 | Folder | What it holds |
 |---|---|
+| `api/src/NitroDrp.Api/Notifications` | The feed's rules, the push standards (`WebPushProtocol`: encryption and VAPID on .NET's own crypto), the sender, the background worker |
 | `api/src/NitroDrp.Api` | The ASP.NET Core API: endpoints, `ShareService` (all the rules), S3 and DynamoDB adapters |
 | `api/tests` | xUnit tests: rules against in-memory fakes, plus the real HTTP pipeline |
 | `web/src` | The React app, including the in-browser backend used by the demo |
@@ -55,6 +56,8 @@ Without Docker, start an S3 emulator and DynamoDB Local yourself, then run the A
 | Web | `cd web && npm test` | Chunk uploader, file matching, formatting, zip writer, the demo backend |
 | Demo in a browser | `cd web && npm run build:demo && npx vite preview --port 4174` then `npm run e2e:demo` | Password gate, downloads, limits, footer, no requests to any server, an embedded iframe that grows and shrinks |
 | Whole stack | `python3 dev/smoke.py [url]` | Against a running stack (local or deployed): 40 MB multipart upload with a simulated crash and resume, download, zip, byte-for-byte comparison, delete |
+| Notifications, demo build | `cd web && npm run build:demo && npx vite preview --port 4174` then `npm run e2e:notifications` | The bell and badge, the feed, turning notifications on for a device, choosing kinds, the daily summary, phone width |
+| Notifications, real stack | `npm run e2e:notifications-real` (needs the stack running with push keys; see the header of `web/e2e/notifications-real.mjs`) | Downloads reaching the feed through DynamoDB and the worker, every route refusing strangers, devices, clearing |
 | Passkeys in a browser | `npm run e2e:passkeys` (needs the stack running; see the header of `web/e2e/passkeys.mjs`) | Enrolling, signing in on a second device, the shared Recent list, removing a device, cookie flags |
 | Hostile input | `dotnet test api/NitroDrp.sln --filter HostileInputTests` | Garbage, oversized and malicious requests all get a clean 4xx (also part of the API suite) |
 | Rate limit | `python3 dev/ratelimit-check.py https://your-site` | That forged client-IP headers can't dodge the limit (run against a deployed site) |

@@ -22,6 +22,8 @@ The demo site is installable the same way.
   phone as everywhere else.
 - **Keep the app open while uploading.** A phone may pause a page that's in the background. If an upload stops,
   reopen the app and press **Resume upload**: finished parts are never sent again.
+- **Notifications:** once it's set up on your server, the bell page can send a message to your phone when a link is
+  downloaded, runs out or is about to expire. On an iPhone this only works for the app **on the Home Screen** (iOS 16.4 or newer). See [NOTIFICATIONS.md](NOTIFICATIONS.md).
 - **Offline:** the app opens without a connection and says you're offline. Creating and opening links, uploads
   and downloads need one. Nothing private is saved on the phone by the app's offline copy (see below).
 - **Updates:** when a new version is deployed, the app picks it up the next time it opens (sometimes the second

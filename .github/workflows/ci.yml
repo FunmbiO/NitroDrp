@@ -52,6 +52,7 @@ jobs:
           nohup npx vite preview --port 4174 >/tmp/preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:4174/ >/dev/null && break; sleep 1; done
           npm run e2e:demo
+          npm run e2e:notifications
 
   passkeys-e2e:
     # The real API (DynamoDB and S3 emulated by moto) and the real UI, driven by a browser with a virtual
@@ -104,6 +105,66 @@ jobs:
           nohup npx vite --port 5173 >/tmp/vite.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://localhost:5173/api/auth/status >/dev/null && break; sleep 1; done
           npm run e2e:passkeys
+      - name: Logs, if it failed
+        if: failure()
+        run: tail -n 60 /tmp/api.log /tmp/moto.log /tmp/vite.log
+
+  notifications-e2e:
+    # The real API and UI with push switched on (keys made by deploy/make-vapid.sh, as a person would), driven by a
+    # browser: downloads reach the feed through DynamoDB and the background worker, and every route refuses strangers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "moto[server]==5.2.5"
+      - run: dotnet restore api/NitroDrp.sln --locked-mode
+      - run: dotnet publish api/src/NitroDrp.Api -c Release --no-restore -o /tmp/api
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: Start the stack and run the browser test
+        working-directory: web
+        env:
+          NitroDrp__ApiKey: dev-access-key-change-me
+          NitroDrp__S3__Bucket: nitrodrp-dev
+          NitroDrp__S3__ServiceUrl: http://127.0.0.1:5000
+          NitroDrp__S3__PublicServiceUrl: http://127.0.0.1:5000
+          NitroDrp__S3__ForcePathStyle: "true"
+          NitroDrp__S3__AutoCreateBucket: "true"
+          NitroDrp__S3__AccessKey: test
+          NitroDrp__S3__SecretKey: test
+          NitroDrp__Dynamo__ServiceUrl: http://127.0.0.1:5000
+          NitroDrp__Dynamo__AutoCreateTable: "true"
+          NitroDrp__Dynamo__AccessKey: test
+          NitroDrp__Dynamo__SecretKey: test
+          NitroDrp__PublicBaseUrl: http://localhost:5173
+          NitroDrp__Auth__Passkeys: "true"
+          NitroDrp__Notifications__Push__Subject: mailto:ci@example.com
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          ASPNETCORE_URLS: http://127.0.0.1:8080
+        run: |
+          keys=$(bash ../deploy/make-vapid.sh)
+          export PUSH_PUBLIC_KEY=$(sed -n 's/^PUSH_PUBLIC_KEY=//p' <<<"$keys")
+          export NitroDrp__Notifications__Push__PublicKey=$PUSH_PUBLIC_KEY
+          export NitroDrp__Notifications__Push__PrivateKey=$(sed -n 's/^PUSH_PRIVATE_KEY=//p' <<<"$keys")
+          nohup moto_server -p 5000 >/tmp/moto.log 2>&1 &
+          for i in $(seq 1 30); do curl -s http://127.0.0.1:5000/ >/dev/null && break; sleep 1; done
+          (cd /tmp/api && nohup dotnet NitroDrp.Api.dll >/tmp/api.log 2>&1 &)
+          nohup npx vite --port 5173 >/tmp/vite.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:5173/api/auth/status >/dev/null && break; sleep 1; done
+          npm run e2e:notifications-real
       - name: Logs, if it failed
         if: failure()
         run: tail -n 60 /tmp/api.log /tmp/moto.log /tmp/vite.log

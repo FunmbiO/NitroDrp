@@ -96,6 +96,10 @@ flowchart LR
 | POST | `/api/auth/logout` | none | Clear the session cookie |
 | GET, DELETE | `/api/auth/passkeys`, `/api/auth/passkeys/{id}` | session | List and remove enrolled devices |
 | GET | `/api/shares` | session or `X-Api-Key` | The owner's live links, newest first, the same on every device |
+| GET | `/api/notifications`, `/api/notifications/unread` | session or `X-Api-Key` | The owner's activity feed (generic text, no file names), unread count, devices and settings |
+| POST, DELETE | `/api/notifications/read`, `/api/notifications` | session or `X-Api-Key` | Mark the feed read, or clear it |
+| POST, PUT, DELETE | `/api/notifications/devices`, `/devices/{id}`, `/devices/{id}/test` | session or `X-Api-Key` | Register a phone or laptop for push (checked against the real push services), choose its kinds, send a test, remove it |
+| PUT | `/api/notifications/digest` | session or `X-Api-Key` | Turn the daily email summary on or off |
 | GET | `/api/config` | none | Whether email is available, and its limits (the page hides the email options if not) |
 | POST | `/api/shares/{token}/email` | `X-Owner-Key` | Email the link to up to 10 addresses; per-recipient results and remaining allowance |
 | POST | `/api/shares/{token}/unlock` | password | File list for protected links |

@@ -60,6 +60,8 @@ The demo runs its whole backend inside your browser, so nothing you pick is uplo
 - **A little ceremony when mail goes out.** An F1 car on NOS launches off the grid, leaves a trail of smoke, and "EMAIL
   SENT" appears, before the link page ([details](docs/DEVELOPMENT.md#the-email-sent-animation)). Skippable, and a still
   picture under "reduce motion".
+- **Notifications.** A bell in the app, a message on your phone when a link is downloaded, runs out or is about to expire,
+  and an optional daily email. Messages never name your files or recipients ([guide](docs/NOTIFICATIONS.md)).
 - **Installs on a phone** as a home-screen app (a PWA): full screen, its own icon, opens offline.
 - **Optional CloudFront** for downloads, with signed URLs; works fine without it.
 - **One app on every device:** sign in with Face ID or a fingerprint (passkeys), and see the same links on your phone
@@ -95,6 +97,7 @@ The demo runs its whole backend inside your browser, so nothing you pick is uplo
 | [Security](docs/SECURITY.md) | Every input, its limits, and the attacks covered and how they're tested |
 | [Passkeys](docs/AUTH.md) | Signing in with Face ID or a fingerprint, one app across devices, removing a device |
 | [Phone app](docs/PHONE.md) | Installing NitroDrp on a phone's home screen and what to expect |
+| [Notifications](docs/NOTIFICATIONS.md) | The bell, phone notifications and the daily summary: step-by-step setup, troubleshooting, privacy |
 | [Email](docs/EMAIL.md) | Emailing links with Amazon SES: setup, DKIM records, leaving the sandbox, limits |
 | [The demo](docs/DEMO.md) | The in-browser demo, deploying it on Vercel, embedding it |
 

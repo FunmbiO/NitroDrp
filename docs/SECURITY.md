@@ -17,6 +17,7 @@ before anything is sent.
 | **Email recipients** | Plain `name@domain.tld` only: no `Name <a@b>`, lists, quotes or line breaks (so no extra recipients or headers can be smuggled in). 10 per send, 20 per link. | page + server |
 | **Your name, your email, message** | Name: 60 characters, one line. Reply-to: a plain address, 254 characters. Message: 1,000 characters; line breaks kept, other control and direction characters removed. In the email everything is HTML-encoded, and the subject is a single line. | page + server |
 | **Device name** (passkey) | 40 characters, one line. | page + server |
+| **Push subscription** (device) | Its address must be https, no port or credentials, on the exact push services of Apple, Google, Mozilla or Microsoft (or a subdomain), else refused. Its keys must decode to a 65-byte P-256 point and a 16-byte secret. Name: 40 characters, one line. At most 10 devices. Owner only. | server |
 | **Pasted link** | Only a link's code is extracted; the app then goes to its own `/d/<code>` page. It never navigates to a pasted address. | page |
 | **Link code, file id, passkey id** (in the address) | Must be shaped like ours (letters and digits, 8 to 32 characters, and so on). Anything else gets "not found" before the database is touched. | server |
 | **Request bodies** | At most 1 MB, strict JSON (a number must be a number, not `"7"`), nesting limited. Malformed input is a clean `400`, or `413` when too large, never a `500`. | server |
@@ -49,7 +50,7 @@ does. So every request is judged by the server, whatever the page showed:
 | **Brute force** | Per-visitor rate limits (stricter on passwords and sign-in), and 71-bit unguessable link codes. |
 | **Denial of service by size** | 1 MB request cap, zip concurrency limit, bounded passwords, rate limits. |
 | **Log injection / leaking personal data** | Logs never contain typed text or addresses, only counts and error types. |
-| **SSRF / open redirect** | The server fetches only its own signed storage URLs; the app never redirects to a typed address. |
+| **SSRF / open redirect** | The server fetches only its own signed storage URLs and the push services a registered device names, and those must be one of a fixed list of real push-service hosts over https (`169.254.169.254`, `localhost`, other sites and look-alike hosts are refused, with tests). The app never redirects to a typed address. |
 | **ReDoS** | The patterns that read pasted text are linear, and tested against 100,000-character input. |
 
 ## How this is checked
