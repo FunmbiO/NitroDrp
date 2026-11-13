@@ -8,10 +8,12 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }
 check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
-scratch() { T=$(mktemp -d); mkdir -p "$T/deploy"; cp "$ROOT/deploy/setup-env.sh" "$T/deploy/"; cp "$ROOT/.env.example" "$T/"; cp "$ROOT/docker-compose.yml" "$T/"; mkdir -p "$T/deploy"; cp "$ROOT/deploy/Caddyfile" "$T/deploy/"; echo "$T"; }
+scratch() { T=$(mktemp -d); mkdir -p "$T/deploy"; cp "$ROOT/deploy/setup-env.sh" "$ROOT/deploy/make-vapid.sh" "$T/deploy/"; cp "$ROOT/.env.example" "$T/"; cp "$ROOT/docker-compose.yml" "$T/"; mkdir -p "$T/deploy"; cp "$ROOT/deploy/Caddyfile" "$T/deploy/"; echo "$T"; }
 SECRET='wJalr/XUt+nFEMI/K7MDENG&bPx|RfiCYEXAMPLEKEY'
 # answers <site> [passkeys y/n] [email y/n] [more answers...]   (passkeys and email default to "n")
-answers() { printf '%s\n' "Jaded Media" "us-east-2" "my-bucket" "" "AKIAEXAMPLE123456789" "$SECRET" "$1" "${2:-n}" "${3:-n}" "${@:4}"; }
+# The notification questions come last: push (y/n), then the push contact if yes, then (only with email on) who gets the summary.
+# Set PUSH=y, PUSH_SUBJECT=... and DIGEST=... to answer them; a set-but-empty value means "press Enter".
+answers() { printf '%s\n' "Jaded Media" "us-east-2" "my-bucket" "" "AKIAEXAMPLE123456789" "$SECRET" "$1" "${2:-n}" "${3:-n}" "${@:4}" "${PUSH:-n}" ${PUSH_SUBJECT+"$PUSH_SUBJECT"} ${DIGEST+"$DIGEST"}; }
 
 T=$(scratch); cd "$T"
 answers "drop.example.com" | ./deploy/setup-env.sh >out.txt 2>&1
@@ -75,4 +77,37 @@ printf '%s\n' "Jaded Media" "us-east-2" "" | ./deploy/setup-env.sh >/dev/null 2>
 check "rejects an empty bucket name" '[ ! -f .env ]'
 
 cd "$ROOT"; rm -rf "$T"
+T=$(scratch); cd "$T"
+PUSH=y PUSH_SUBJECT="mailto:me@example.com" answers "drop.example.com" y n "" | ./deploy/setup-env.sh >out.txt 2>&1
+check "push: makes a key pair and writes it with the contact" 'grep -qx "PUSH_SUBJECT=mailto:me@example.com" .env && grep -Eq "^PUSH_PUBLIC_KEY=[A-Za-z0-9_-]{87}$" .env && grep -Eq "^PUSH_PRIVATE_KEY=[A-Za-z0-9_-]{43}$" .env'
+check "push: the private key is not printed to the screen" '! grep -q "$(grep ^PUSH_PRIVATE_KEY= .env | cut -d= -f2)" out.txt'
+check "push: the file stays private (600)" '[ "$(stat -c %a .env)" = 600 ]'
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  cfg=$(docker compose --profile public config 2>/dev/null)
+  check "Docker Compose passes the push settings to the API" 'echo "$cfg" | grep -q "NitroDrp__Notifications__Push__PublicKey: $(grep ^PUSH_PUBLIC_KEY= .env | cut -d= -f2)" && echo "$cfg" | grep -q "NitroDrp__Notifications__Push__Subject: mailto:me@example.com"'
+fi
+
+cd "$ROOT"; rm -rf "$T"
+T=$(scratch); cd "$T"
+PUSH=y PUSH_SUBJECT="not a contact" answers "drop.example.com" y n "" | ./deploy/setup-env.sh >/dev/null 2>&1
+check "push: a contact that is neither mailto: nor https is rejected" '[ ! -f .env ]'
+PUSH=y PUSH_SUBJECT="" answers "drop.example.com" y n "" | ./deploy/setup-env.sh >/dev/null 2>&1
+check "push: the contact defaults to the site address" 'grep -qx "PUSH_SUBJECT=https://drop.example.com" .env'
+
+cd "$ROOT"; rm -rf "$T"
+T=$(scratch); cd "$T"
+DIGEST="me@example.com" answers "drop.example.com" y y "transfers@example.com" "" | ./deploy/setup-env.sh >/dev/null 2>&1
+check "summary: with email on, the daily summary address is saved" 'grep -qx "DIGEST_EMAIL_TO=me@example.com" .env && grep -q "^# PUSH_PUBLIC_KEY=" .env'
+cd "$ROOT"; rm -rf "$T"
+T=$(scratch); cd "$T"
+DIGEST="nope" answers "drop.example.com" y y "transfers@example.com" "" | ./deploy/setup-env.sh >/dev/null 2>&1
+check "summary: a bad address is rejected" '[ ! -f .env ]'
+
+cd "$ROOT"; rm -rf "$T"
+# the key tool on its own
+k1=$("$ROOT/deploy/make-vapid.sh"); k2=$("$ROOT/deploy/make-vapid.sh")
+check "make-vapid: prints a 65-byte public and a 32-byte private key (base64url)" 'echo "$k1" | grep -Eq "^PUSH_PUBLIC_KEY=[A-Za-z0-9_-]{87}$" && echo "$k1" | grep -Eq "^PUSH_PRIVATE_KEY=[A-Za-z0-9_-]{43}$"'
+check "make-vapid: the public key starts with the uncompressed-point marker (B...)" 'echo "$k1" | grep -q "^PUSH_PUBLIC_KEY=B"'
+check "make-vapid: every run is a new pair" '[ "$k1" != "$k2" ]'
+
 [ $fail -eq 0 ] && echo "All checks passed." || { echo "Some checks failed."; exit 1; }

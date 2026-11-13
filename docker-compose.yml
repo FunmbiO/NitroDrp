@@ -19,6 +19,11 @@ services:
       NitroDrp__Email__Enabled: ${EMAIL_ENABLED:-false}
       NitroDrp__Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
       NitroDrp__Email__Region: ${EMAIL_REGION:-${AWS_REGION:-us-east-2}}
+      NitroDrp__Notifications__Push__PublicKey: ${PUSH_PUBLIC_KEY:-}
+      NitroDrp__Notifications__Push__PrivateKey: ${PUSH_PRIVATE_KEY:-}
+      NitroDrp__Notifications__Push__Subject: ${PUSH_SUBJECT:-}
+      NitroDrp__Notifications__DigestEmailTo: ${DIGEST_EMAIL_TO:-}
+      NitroDrp__Notifications__DigestHourUtc: ${DIGEST_HOUR_UTC:-13}
       NitroDrp__Dynamo__Table: ${DYNAMO_TABLE:-nitrodrp}
       NitroDrp__Dynamo__Region: ${AWS_REGION:-ca-central-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}

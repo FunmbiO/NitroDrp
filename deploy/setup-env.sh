@@ -57,13 +57,34 @@ if [ "$V_PASSKEYS_ENABLED" = true ] || [ "$V_EMAIL_ENABLED" = true ]; then
   fi
 fi
 
+V_PUSH_PUBLIC_KEY="" V_PUSH_PRIVATE_KEY="" V_PUSH_SUBJECT="" V_DIGEST_EMAIL_TO=""
+yn=$(ask "Notifications to your phone when someone downloads a link, etc.? Needs https, see docs/NOTIFICATIONS.md (y/N)" "n")
+case "$yn" in
+  [yY]*)
+    if [ -z "$V_PUBLIC_BASE_URL" ]; then
+      V_PUBLIC_BASE_URL=$(ask "Public address of this site (phones only allow notifications on https)" "${V_SITE_ADDRESS:+https://$V_SITE_ADDRESS}")
+      case "$V_PUBLIC_BASE_URL" in https://*) V_PUBLIC_BASE_URL=${V_PUBLIC_BASE_URL%/} ;; *) echo "Give the full https address, like https://drop.example.com" >&2; exit 1 ;; esac
+    fi
+    V_PUSH_SUBJECT=$(ask "Contact for the phone makers' push services (your email as mailto:you@example.com, or your https address)" "$V_PUBLIC_BASE_URL")
+    case "$V_PUSH_SUBJECT" in mailto:?*@?*|https://?*) ;; *) echo "Give it as mailto:you@example.com or an https:// address." >&2; exit 1 ;; esac
+    keys=$("$(dirname "$0")/make-vapid.sh")
+    V_PUSH_PUBLIC_KEY=$(sed -n 's/^PUSH_PUBLIC_KEY=//p' <<<"$keys")
+    V_PUSH_PRIVATE_KEY=$(sed -n 's/^PUSH_PRIVATE_KEY=//p' <<<"$keys")
+    need "Push key" "$V_PUSH_PUBLIC_KEY"
+    ;;
+esac
+if [ "$V_EMAIL_ENABLED" = true ]; then
+  V_DIGEST_EMAIL_TO=$(ask "Email a short daily summary to (an address, blank for none)")
+  case "$V_DIGEST_EMAIL_TO" in ""|*?@?*.?*) ;; *) echo "That doesn't look like an email address." >&2; exit 1 ;; esac
+fi
+
 if command -v openssl >/dev/null 2>&1; then
   V_API_KEY=$(openssl rand -hex 32)
 else
   V_API_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
 fi
 
-export V_SENDER_NAME V_AWS_REGION V_S3_BUCKET V_DYNAMO_TABLE V_AWS_ACCESS_KEY_ID V_AWS_SECRET_ACCESS_KEY V_SITE_ADDRESS V_API_KEY V_EMAIL_ENABLED V_EMAIL_FROM_ADDRESS V_PUBLIC_BASE_URL V_PASSKEYS_ENABLED
+export V_SENDER_NAME V_AWS_REGION V_S3_BUCKET V_DYNAMO_TABLE V_AWS_ACCESS_KEY_ID V_AWS_SECRET_ACCESS_KEY V_SITE_ADDRESS V_API_KEY V_EMAIL_ENABLED V_EMAIL_FROM_ADDRESS V_PUBLIC_BASE_URL V_PASSKEYS_ENABLED V_PUSH_PUBLIC_KEY V_PUSH_PRIVATE_KEY V_PUSH_SUBJECT V_DIGEST_EMAIL_TO
 umask 077
 # Values go through the environment (not the command line or a sed expression), so characters like / + & | in
 # a secret can't break anything.
@@ -80,6 +101,10 @@ awk '
   /^# ?EMAIL_ENABLED=/       { if (ENVIRON["V_EMAIL_ENABLED"] == "true") print "EMAIL_ENABLED=true"; else print; next }
   /^# ?EMAIL_FROM_ADDRESS=/  { if (ENVIRON["V_EMAIL_ENABLED"] == "true") print "EMAIL_FROM_ADDRESS=" ENVIRON["V_EMAIL_FROM_ADDRESS"]; else print; next }
   /^# ?PUBLIC_BASE_URL=/     { if (ENVIRON["V_PUBLIC_BASE_URL"] != "") print "PUBLIC_BASE_URL=" ENVIRON["V_PUBLIC_BASE_URL"]; else print; next }
+  /^# ?PUSH_PUBLIC_KEY=/     { if (ENVIRON["V_PUSH_PUBLIC_KEY"] != "") print "PUSH_PUBLIC_KEY=" ENVIRON["V_PUSH_PUBLIC_KEY"]; else print; next }
+  /^# ?PUSH_PRIVATE_KEY=/    { if (ENVIRON["V_PUSH_PRIVATE_KEY"] != "") print "PUSH_PRIVATE_KEY=" ENVIRON["V_PUSH_PRIVATE_KEY"]; else print; next }
+  /^# ?PUSH_SUBJECT=/        { if (ENVIRON["V_PUSH_SUBJECT"] != "") print "PUSH_SUBJECT=" ENVIRON["V_PUSH_SUBJECT"]; else print; next }
+  /^# ?DIGEST_EMAIL_TO=/     { if (ENVIRON["V_DIGEST_EMAIL_TO"] != "") print "DIGEST_EMAIL_TO=" ENVIRON["V_DIGEST_EMAIL_TO"]; else print; next }
   { print }
 ' "$TEMPLATE" > "$OUT"
 chmod 600 "$OUT"
