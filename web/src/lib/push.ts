@@ -80,3 +80,9 @@ export async function unsubscribeThisDevice(): Promise<void> {
   const sub = await reg?.pushManager.getSubscription()
   await sub?.unsubscribe()
 }
+
+/** The id the server gives a device: the first 32 hex characters of the SHA-256 of its endpoint. Lets the page spot "this device" in the list. */
+export async function deviceIdFor(endpoint: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint))
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+}

@@ -215,3 +215,19 @@ html[data-embed] .hero-scene { display: none; }
 .welcome .btn { align-self: stretch; }
 .owner-link { margin: 0; text-align: center; font: 12px var(--mono); }
 .owner-link a { color: var(--muted); text-underline-offset: 3px; }
+
+/* Notifications */
+.bell { position: relative; display: inline-flex; align-items: center; min-height: 44px; min-width: 32px; }
+.badge { position: absolute; top: 2px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--pink); color: var(--bg); font: 700 11px/18px var(--mono); text-align: center; }
+.note-row { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.note-row:last-child { border-bottom: 0; }
+.note-row.unread { border-left: 4px solid var(--lime); padding-left: 16px; }
+.note-dot { flex: none; width: 12px; height: 12px; margin-top: 6px; background: var(--lime); }
+.note-row[data-kind='limit_reached'] .note-dot { background: var(--orange); }
+.note-row[data-kind='expiring_soon'] .note-dot { background: var(--pink); }
+.note-row[data-kind='email_failed'] .note-dot { background: var(--pink); }
+.device-row { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.device-row:last-child { border-bottom: 0; }
+.kinds { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.kinds .check { min-height: 36px; font-weight: 400; font-size: 14px; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }

@@ -4,7 +4,8 @@ import { useEmbedAutoHeight } from '../lib/embed'
 import { useOnline } from '../lib/online'
 import { useAuth } from '../lib/auth'
 import { Footer } from './Footer'
-import { LogoMark } from './Icons'
+import { useUnread } from '../lib/unread'
+import { BellIcon, LogoMark } from './Icons'
 
 export function Layout() {
   const { pathname } = useLocation()
@@ -12,6 +13,7 @@ export function Layout() {
   const online = useOnline()
   const { signedIn, status } = useAuth()
   const isRecipient = pathname.startsWith('/d/')
+  const unread = useUnread(signedIn && !isRecipient && !EMBED)
   return (
     <>
       {!online && !EMBED && (
@@ -38,6 +40,12 @@ export function Layout() {
               <Link to="/open" className="nav-link">
                 Open a link
               </Link>
+              {signedIn && (
+                <Link to="/notifications" className="nav-link bell" aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}>
+                  <BellIcon />
+                  {unread > 0 && <span className="badge" aria-hidden="true">{unread > 9 ? '9+' : unread}</span>}
+                </Link>
+              )}
               {signedIn && status?.passkeysEnabled && (
                 <Link to="/devices" className="nav-link">
                   Devices

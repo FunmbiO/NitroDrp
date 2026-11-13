@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bytesToUrlBase64, deviceLabel, urlBase64ToBytes } from './push'
+import { bytesToUrlBase64, deviceIdFor, deviceLabel, urlBase64ToBytes } from './push'
 
 describe('push helpers', () => {
   it('converts a VAPID key both ways', () => {
@@ -24,5 +24,13 @@ describe('push helpers', () => {
     expect(deviceLabel('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('Windows PC')
     expect(deviceLabel('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe('Mac')
     expect(deviceLabel('???')).toBe('This device')
+  })
+
+  it('gives a device the same id the server does', async () => {
+    // The API test PushPolicyTests computes the same value from the same endpoint.
+    const id = await deviceIdFor('https://fcm.googleapis.com/x')
+    expect(id).toMatch(/^[0-9a-f]{32}$/)
+    expect(await deviceIdFor('https://fcm.googleapis.com/x')).toBe(id)
+    expect(await deviceIdFor('https://fcm.googleapis.com/y')).not.toBe(id)
   })
 })

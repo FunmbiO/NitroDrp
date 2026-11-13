@@ -7,6 +7,7 @@ import { CreatedPage } from './pages/CreatedPage'
 import { RecentPage } from './pages/RecentPage'
 import { DownloadPage } from './pages/DownloadPage'
 import { DevicesPage } from './pages/DevicesPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { OwnerPage } from './pages/OwnerPage'
 import { OpenLinkPage } from './pages/OpenLinkPage'
 import { AuthProvider } from './lib/auth'
@@ -47,6 +48,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/created/:token" element={<CreatedPage />} />
               <Route path="/recent" element={<RecentPage />} />
               <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="*" element={<UploadPage />} />
             </Route>
           </Route>

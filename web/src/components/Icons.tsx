@@ -29,3 +29,6 @@ export const CloseIcon = () => (
 export const DownloadIcon = ({ size = 20 }: { size?: number }) => (
   <svg {...base} width={size} height={size} viewBox="0 0 24 24" strokeWidth="2"><path d="M12 4v12M7 11l5 5 5-5" /><path d="M5 20h14" /></svg>
 )
+export const BellIcon = ({ size = 20 }: { size?: number }) => (
+  <svg {...base} width={size} height={size} viewBox="0 0 24 24" strokeWidth="2"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z" /><path d="M10 21h4" /></svg>
+)
