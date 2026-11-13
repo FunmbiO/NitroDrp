@@ -226,6 +226,42 @@ try {
   ok(true, 'the real access key still gets in, for browsers that can\'t use passkeys')
   await X.close()
 
+  // ---- a stranger can't get into the app, whatever they click or tamper with ----
+  const X = await browser.newContext({ extraHTTPHeaders: { 'X-Client-IP': '10.20.30.40' } }) // a stranger has their own address, so their own rate limit
+  const xp = await X.newPage()
+  await xp.goto(`${BASE}/`)
+  await xp.waitForSelector('button:has-text("Sign in with a passkey")')
+  await xp.click('text=Use the access key without a passkey')
+  await xp.waitForSelector('#ak-key')
+  ok((await xp.locator('input[type=file]').count()) === 0 && (await xp.locator('text=Create link').count()) === 0, 'the access-key button no longer opens the app: it asks for the key')
+
+  await xp.fill('#ak-key', 'not-the-access-key-at-all-123')
+  await xp.click('button:has-text("Continue with the access key")')
+  await xp.waitForSelector('.field-error')
+  ok((await xp.textContent('.field-error')).includes("isn't right") && (await xp.locator('input[type=file]').count()) === 0, 'a wrong key is refused by the server, and the app stays shut')
+
+  // tampering with the page's own storage doesn't open it either
+  await xp.evaluate(() => { sessionStorage.setItem('nitrodrp.accessKeyMode', '1'); localStorage.setItem('nitrodrp.accessKeyMode', '1'); localStorage.setItem('nitrodrp.apiKey', 'guess') })
+  await xp.reload()
+  await xp.waitForSelector('button:has-text("Sign in with a passkey")')
+  ok((await xp.locator('input[type=file]').count()) === 0, 'setting flags by hand in the browser does not open it')
+
+  // and the server refuses the same visitor, whatever the page does
+  const anon = [
+    await X.request.get(`${BASE}/api/shares`, { headers: H }),
+    await X.request.post(`${BASE}/api/shares`, { headers: H, data: { files: [{ name: 'a.txt', size: 1 }], expiresInDays: 7 } }),
+    await X.request.get(`${BASE}/api/auth/passkeys`, { headers: H }),
+    await X.request.post(`${BASE}/api/auth/register/begin`, { headers: H }),
+  ]
+  ok(anon.every((r) => r.status() === 401), `the server answers a stranger with 401 on every one of those (${anon.map((r) => r.status()).join(', ')})`)
+
+  await xp.click('text=Use the access key without a passkey')
+  await xp.fill('#ak-key', ACCESS_KEY)
+  await xp.click('button:has-text("Continue with the access key")')
+  await xp.waitForSelector('text=Create link', { timeout: 15_000 })
+  ok(true, 'the real access key still gets in, for browsers that can\'t use passkeys')
+  await X.close()
+
   // ---- recipients never see any of this ----
   const R = await browser.newContext()
   const rp = await R.newPage()
