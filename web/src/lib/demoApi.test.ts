@@ -156,3 +156,68 @@ describe('demo: emailing a link (simulated)', () => {
     expect(await code(api.sendEmail(c.token, c.ownerKey, { recipients: ['a@example.com'] }))).toBe('expired')
   })
 })
+
+describe('demo notifications', () => {
+  it('starts with examples, all unread', async () => {
+    const { api } = make()
+    const v = await api.notifications()
+    expect(v.simulated).toBe(true)
+    expect(v.items.length).toBe(2)
+    expect(v.unread).toBe(2)
+    expect(await api.unreadCount()).toBe(2)
+  })
+
+  it("tells the visitor about downloads of their own links, but not of the examples", async () => {
+    const b = make()
+    await b.api.markNotificationsRead()
+    await b.api.download('demo1234abcd')
+    expect(await b.api.unreadCount()).toBe(0)
+
+    clock += 1000
+    const c = await publish(b, { limit: 2 })
+    await b.api.download(c.token)
+    clock += 1000
+    await b.api.download(c.token)
+    const kinds = (await b.api.notifications()).items.filter((i) => i.unread).map((i) => i.kind)
+    expect(kinds).toEqual(['limit_reached', 'downloaded', 'downloaded'])
+  })
+
+  it('warns once about a link ending within a day', async () => {
+    const b = make()
+    const c = await b.api.createShare('k', { files: [{ name: 'a.txt', size: 5, contentType: 'x' }], expiresInDays: 1 })
+    await b.api.completeFile(c.token, 'f1', c.ownerKey, [{ partNumber: 1, eTag: 'e' }])
+    await b.api.finalize(c.token, c.ownerKey)
+    clock += 2 * 3_600_000
+    const count = async () => (await b.api.notifications()).items.filter((i) => i.kind === 'expiring_soon' && i.token === c.token).length
+    expect(await count()).toBe(1)
+    expect(await count()).toBe(1)
+  })
+
+  it('reads, clears, and keeps devices and the summary switch', async () => {
+    const { api } = make()
+    await api.markNotificationsRead()
+    expect(await api.unreadCount()).toBe(0)
+    const d = await api.addDevice({ endpoint: 'demo-1', p256dh: 'k', auth: 'a', label: '  Phone  ', kinds: ['downloaded'] })
+    expect(d.label).toBe('Phone')
+    await api.setDigest(true)
+    await api.clearNotifications()
+    const v = await api.notifications()
+    expect(v.items).toEqual([])
+    expect(v.devices.map((x) => x.id)).toEqual(['demo-1'])
+    expect(v.digest.enabled).toBe(true)
+  })
+
+  it('manages devices like the server: kinds, test, remove, cap', async () => {
+    const { api } = make()
+    await api.addDevice({ endpoint: 'd1', p256dh: 'k', auth: 'a', label: 'A', kinds: [] })
+    expect((await api.notifications()).devices[0].kinds).toHaveLength(4) // none chosen means all
+    expect((await api.setDeviceKinds('d1', ['email_failed'])).kinds).toEqual(['email_failed'])
+    expect((await api.testDevice('d1')).sent).toBe(true)
+    expect(await code(api.testDevice('nope'))).toBe('device_not_found')
+    expect(await code(api.setDeviceKinds('nope', ['downloaded']))).toBe('device_not_found')
+    await api.removeDevice('d1')
+    expect((await api.notifications()).devices).toEqual([])
+    for (let i = 0; i < 10; i++) await api.addDevice({ endpoint: `x${i}`, p256dh: 'k', auth: 'a', label: 'A', kinds: [] })
+    expect(await code(api.addDevice({ endpoint: 'x11', p256dh: 'k', auth: 'a', label: 'A', kinds: [] }))).toBe('too_many_devices')
+  })
+})

@@ -4,7 +4,7 @@
  * page: uploaded files are never read or sent anywhere, and "downloads" are small placeholder files.
  * Shares live in localStorage so a link opened in another tab of the same browser works.
  */
-import type { Api, CreateShareResponse, DownloadLink, ShareSummary, ShareView, UploadStatus, ZipLink } from './api'
+import type { Api, CreateShareResponse, DownloadLink, NotificationDevice, NotificationItem, NotificationKind, NotificationsView, ShareSummary, ShareView, UploadStatus, ZipLink } from './api'
 import { ApiError } from './errors'
 import type { UploadedPart } from './upload'
 import { buildStoredZip } from './zip'
@@ -36,9 +36,28 @@ interface DemoShare {
   emailsSent?: number
   files: DemoFile[]
 }
+interface DemoEvent { id: string; kind: NotificationKind; at: number; count: number; token: string | null }
+interface DemoNotes {
+  events: DemoEvent[]
+  lastReadAt: number | null
+  devices: NotificationDevice[]
+  digest: boolean
+  /** Links already warned about, so each is warned once. */
+  warned: string[]
+}
 export interface DemoState {
   shares: Record<string, DemoShare>
+  notes?: DemoNotes
 }
+const KINDS: NotificationKind[] = ['downloaded', 'limit_reached', 'expiring_soon', 'email_failed']
+const KIND_TEXT: Record<NotificationKind, [string, (n: number) => string]> = {
+  downloaded: ['Link downloaded', (n) => (n > 1 ? `One of your links was downloaded (${n} times).` : 'Someone downloaded one of your links.')],
+  limit_reached: ['Download limit reached', () => 'One of your links has used up its downloads.'],
+  expiring_soon: ['Link expiring soon', () => 'One of your links ends soon.'],
+  email_failed: ["Email didn't send", () => 'An email with one of your links could not be delivered.'],
+}
+const EXPIRING_MS = DAY
+const MAX_DEVICES = 10
 export interface DemoStore {
   load(): DemoState | null
   save(state: DemoState): void
@@ -88,6 +107,23 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
   const state: DemoState = store.load() ?? { shares: {} }
   const persist = () => store.save(state)
 
+  // The demo starts with a couple of examples so the notifications page isn't empty the first time.
+  if (!state.notes) {
+    const t = now()
+    state.notes = {
+      events: [
+        { id: 'seed1', kind: 'downloaded', at: t - 2 * 3_600_000, count: 1, token: 'demo1234abcd' },
+        { id: 'seed2', kind: 'expiring_soon', at: t - 5 * 3_600_000, count: 1, token: 'demo1234abcd' },
+      ],
+      lastReadAt: null, devices: [], digest: false, warned: [],
+    }
+  }
+  const notes = state.notes
+  const note = (kind: NotificationKind, token: string | null, count = 1) => {
+    notes.events.unshift({ id: rand(16), kind, at: now(), count, token })
+    notes.events.length = Math.min(notes.events.length, 100)
+  }
+
   // Evergreen examples, refreshed on every load so they never lapse for a returning visitor.
   const seed = (token: string, files: [string, number][], o: { days?: number; password?: string } = {}) => {
     state.shares[token] = {
@@ -135,8 +171,26 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
   })
   const countDownload = (s: DemoShare) => {
     s.count++
+    if (s.ownerKey !== 'demo-owner') {
+      // Examples belong to nobody; the visitor's own links tell them what happened.
+      note('downloaded', s.token)
+      if (s.limit > 0 && s.count >= s.limit) note('limit_reached', s.token)
+    }
     persist()
   }
+  /** Warns once about each of the visitor's links that ends within a day, like the server's background check. */
+  const sweepExpiring = () => {
+    for (const s of Object.values(state.shares)) {
+      if (s.status !== 'Active' || s.ownerKey === 'demo-owner' || s.expiresAt <= now() || s.expiresAt - now() > EXPIRING_MS) continue
+      if (notes.warned.includes(s.token)) continue
+      notes.warned.push(s.token)
+      note('expiring_soon', s.token)
+    }
+  }
+  const unreadOf = (e: DemoEvent) => notes.lastReadAt === null || e.at > notes.lastReadAt
+  const item = (e: DemoEvent): NotificationItem => ({
+    id: e.id, kind: e.kind, title: KIND_TEXT[e.kind][0], body: KIND_TEXT[e.kind][1](e.count), count: e.count, at: iso(e.at), token: e.token, unread: unreadOf(e),
+  })
 
   const api: Api = {
     async createShare(_apiKey, body) {
@@ -233,6 +287,64 @@ export function createDemoBackend(store: DemoStore, opts: DemoOptions = {}) {
       s.emailsSent = used + valid.length
       persist()
       return { results: valid.map((email) => ({ email, sent: true })), remaining: MAX_PER_SHARE - s.emailsSent }
+    },
+
+    async notifications(): Promise<NotificationsView> {
+      sweepExpiring()
+      persist()
+      const items = notes.events.map(item)
+      return {
+        items, unread: items.filter((i) => i.unread).length, pushAvailable: true, publicKey: 'demo', devices: notes.devices,
+        digest: { available: true, enabled: notes.digest, hourUtc: 13 }, kinds: KINDS, simulated: true,
+      }
+    },
+    async unreadCount() {
+      sweepExpiring()
+      persist()
+      return notes.events.filter(unreadOf).length
+    },
+    async markNotificationsRead() {
+      notes.lastReadAt = now()
+      persist()
+    },
+    async clearNotifications() {
+      notes.events = []
+      persist()
+    },
+    async addDevice(body) {
+      const kinds = body.kinds.filter((k) => KINDS.includes(k))
+      const existing = notes.devices.find((d) => d.id === body.endpoint)
+      if (!existing && notes.devices.length >= MAX_DEVICES) throw new ApiError(409, 'too_many_devices', 'Remove a device before adding another.')
+      const dev: NotificationDevice = {
+        id: body.endpoint, label: body.label.trim().slice(0, 40) || 'This device', kinds: kinds.length ? kinds : KINDS, createdAt: iso(now()), lastSentAt: null,
+      }
+      notes.devices = [...notes.devices.filter((d) => d.id !== dev.id), dev]
+      persist()
+      return dev
+    },
+    async setDeviceKinds(id, kinds) {
+      const d = notes.devices.find((x) => x.id === id)
+      if (!d) throw new ApiError(404, 'device_not_found', "That device isn't registered.")
+      d.kinds = kinds.filter((k) => KINDS.includes(k))
+      if (!d.kinds.length) d.kinds = [...KINDS]
+      persist()
+      return { kinds: d.kinds }
+    },
+    async removeDevice(id) {
+      notes.devices = notes.devices.filter((d) => d.id !== id)
+      persist()
+    },
+    async testDevice(id) {
+      const d = notes.devices.find((x) => x.id === id)
+      if (!d) throw new ApiError(404, 'device_not_found', "That device isn't registered.")
+      d.lastSentAt = iso(now())
+      persist()
+      return { sent: true, gone: false }
+    },
+    async setDigest(enabled) {
+      notes.digest = enabled
+      persist()
+      return { enabled }
     },
 
     async deleteShare(token, ownerKey) {

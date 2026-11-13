@@ -50,6 +50,32 @@ export interface ShareSummary {
   passwordProtected: boolean
   downloadLimit: number
 }
+/** What can happen to a link that the owner may want to hear about. */
+export type NotificationKind = 'downloaded' | 'limit_reached' | 'expiring_soon' | 'email_failed'
+export interface NotificationItem {
+  id: string
+  kind: NotificationKind
+  title: string
+  body: string
+  count: number
+  at: string
+  token: string | null
+  unread: boolean
+}
+export interface NotificationDevice { id: string; label: string; kinds: NotificationKind[]; createdAt: string; lastSentAt: string | null }
+export interface NotificationsView {
+  items: NotificationItem[]
+  unread: number
+  /** Push is set up on the server. */
+  pushAvailable: boolean
+  /** The server's key the browser needs to subscribe. */
+  publicKey: string | null
+  devices: NotificationDevice[]
+  digest: { available: boolean; enabled: boolean; hourUtc: number }
+  kinds: NotificationKind[]
+  /** Only the browser demo sets this: nothing is really sent. */
+  simulated?: boolean
+}
 export interface DownloadLink { id: string; name: string; size: number; url: string }
 
 import { demo } from './demoInstance'
@@ -118,6 +144,18 @@ const realApi = {
   verifyAccessKey: (key: string) => call<ShareSummary[]>('GET', '/shares', { headers: { 'X-Api-Key': key } }).then(() => undefined),
   /** Every live link, newest first. Needs a sign-in (or the access key). */
   listMine: () => call<ShareSummary[]>('GET', '/shares'),
+
+  // --- notifications (the owner only) ---
+  notifications: () => call<NotificationsView>('GET', '/notifications'),
+  unreadCount: () => call<{ unread: number }>('GET', '/notifications/unread').then((r) => r.unread),
+  markNotificationsRead: () => call<void>('POST', '/notifications/read'),
+  clearNotifications: () => call<void>('DELETE', '/notifications'),
+  addDevice: (body: { endpoint: string; p256dh: string; auth: string; label: string; kinds: NotificationKind[] }) =>
+    call<NotificationDevice>('POST', '/notifications/devices', { body }),
+  setDeviceKinds: (id: string, kinds: NotificationKind[]) => call<{ kinds: NotificationKind[] }>('PUT', `/notifications/devices/${id}`, { body: { kinds } }),
+  removeDevice: (id: string) => call<void>('DELETE', `/notifications/devices/${id}`),
+  testDevice: (id: string) => call<{ sent: boolean; gone: boolean }>('POST', `/notifications/devices/${id}/test`),
+  setDigest: (enabled: boolean) => call<{ enabled: boolean }>('PUT', '/notifications/digest', { body: { enabled } }),
 
   getConfig: () => call<AppConfig>('GET', '/config'),
   sendEmail: (token: string, ownerKey: string | undefined, body: EmailRequest) =>
