@@ -136,9 +136,9 @@ export function NotificationsPage() {
 
       <div className="card" aria-label="Recent activity">
         {view === null || holdLoader ? (
-          <div className="pad"><PixelLoader label="Loading notifications" /></div>
+          <div style={{ padding: 24 }}><PixelLoader label="Loading notifications" /></div>
         ) : view.items.length === 0 ? (
-          <div className="pad"><p className="muted" style={{ margin: 0 }}>Nothing yet. You'll see a note here when someone downloads a link, a link runs out or is about to expire, or an email doesn't go through.</p></div>
+          <div style={{ padding: 24 }}><p className="muted" style={{ margin: 0 }}>Nothing yet. You'll see a note here when someone downloads a link, a link runs out or is about to expire, or an email doesn't go through.</p></div>
         ) : (
           view.items.map((n) => (
             <div className={`note-row${n.unread ? ' unread' : ''}`} key={n.id} data-kind={n.kind}>
