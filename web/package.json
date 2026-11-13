@@ -15,6 +15,7 @@
     "mock": "node mock/server.mjs",
     "e2e:demo": "node e2e/demo.mjs",
     "e2e:notifications": "node e2e/notifications.mjs",
+    "e2e:notifications-real": "node e2e/notifications-real.mjs",
     "e2e:passkeys": "node e2e/passkeys.mjs",
     "screenshots": "node e2e/screenshots.mjs",
     "record": "node e2e/record-demo.mjs"

@@ -95,17 +95,29 @@ export function NotificationsPage() {
     if (!r.sent) throw new Error("The push service didn't accept the message. Try again in a minute.")
   }, DEMO ? 'Test sent (simulated).' : 'Test sent. It should appear on that device in a few seconds.')
 
-  const toggleKind = (d: NotificationDevice, kind: NotificationKind) => run(async () => {
+  // The box flips at once and is put back if the server says no, so it never feels slow.
+  const toggleKind = (d: NotificationDevice, kind: NotificationKind) => {
     const next = d.kinds.includes(kind) ? d.kinds.filter((k) => k !== kind) : [...d.kinds, kind]
-    if (next.length === 0) throw new Error('Pick at least one thing to be told about, or remove the device.')
-    await api.setDeviceKinds(d.id, next)
-    await load()
-  })
+    if (next.length === 0) {
+      setError('Pick at least one thing to be told about, or remove the device.')
+      return
+    }
+    setError('')
+    setView((v) => v && { ...v, devices: v.devices.map((x) => (x.id === d.id ? { ...x, kinds: next } : x)) })
+    void api.setDeviceKinds(d.id, next).catch((e) => {
+      setError(e instanceof Error ? e.message : 'Could not save that.')
+      void load()
+    })
+  }
 
-  const toggleDigest = (enabled: boolean) => run(async () => {
-    await api.setDigest(enabled)
-    await load()
-  })
+  const toggleDigest = (enabled: boolean) => {
+    setError('')
+    setView((v) => v && { ...v, digest: { ...v.digest, enabled } })
+    void api.setDigest(enabled).catch((e) => {
+      setError(e instanceof Error ? e.message : 'Could not save that.')
+      void load()
+    })
+  }
 
   const deviceCard = () => {
     if (!view) return null
@@ -168,11 +180,11 @@ export function NotificationsPage() {
                 <div className="device-row" key={d.id}>
                   <span><strong>{d.label}</strong>{d.id === thisDevice && <span className="tag">this device</span>}</span>
                   <span className="meta">{d.lastSentAt ? `Last message ${formatAgo(d.lastSentAt)}` : 'No messages sent yet'}</span>
-                  <fieldset className="kinds" style={{ border: 0, padding: 0, margin: 0 }} disabled={busy}>
+                  <fieldset className="kinds" style={{ border: 0, padding: 0, margin: 0 }}>
                     <legend className="meta" style={{ padding: 0 }}>Tell me when…</legend>
                     {view.kinds.map((k) => (
                       <label className="check" key={k}>
-                        <input type="checkbox" checked={d.kinds.includes(k)} onChange={() => void toggleKind(d, k)} />
+                        <input type="checkbox" checked={d.kinds.includes(k)} onChange={() => toggleKind(d, k)} />
                         <span>{KIND_LABEL[k]}</span>
                       </label>
                     ))}
@@ -192,7 +204,7 @@ export function NotificationsPage() {
         <div className="card roomy stack" style={{ gap: 14 }}>
           <h2 className="group-title" style={{ margin: 0 }}>Daily email summary</h2>
           <label className="check">
-            <input type="checkbox" checked={view.digest.enabled} disabled={busy} onChange={(e) => void toggleDigest(e.target.checked)} />
+            <input type="checkbox" checked={view.digest.enabled} onChange={(e) => toggleDigest(e.target.checked)} />
             <span>Email me a short summary once a day{DEMO ? ' (simulated)' : ''}</span>
           </label>
           <p className="muted" style={{ margin: 0 }}>Only on days something happened. It has counts and a link to this page, never file names.</p>
