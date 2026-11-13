@@ -15,11 +15,48 @@ public sealed class NitroDrpOptions
     public string? PublicBaseUrl { get; set; }
 
     public AuthOptions Auth { get; set; } = new();
+    public NotificationOptions Notifications { get; set; } = new();
     public EmailOptions Email { get; set; } = new();
     public S3Options S3 { get; set; } = new();
     public CloudFrontOptions CloudFront { get; set; } = new();
     public DynamoOptions Dynamo { get; set; } = new();
     public LimitOptions Limits { get; set; } = new();
+}
+
+/// <summary>
+/// Optional: tell the owner when something happens: someone downloads a link, a link is used up or about to expire, an
+/// email can't be sent. The feed inside the app is always there; push notifications to phones and a daily email
+/// summary are extras.
+/// </summary>
+public sealed class NotificationOptions
+{
+    public PushOptions Push { get; set; } = new();
+
+    /// <summary>Where the daily summary goes. Empty means no summary. Needs email to be set up too.</summary>
+    public string? DigestEmailTo { get; set; }
+
+    /// <summary>The hour (UTC, 0 to 23) the daily summary is sent.</summary>
+    public int DigestHourUtc { get; set; } = 13;
+
+    /// <summary>How long before a link ends that the owner is warned.</summary>
+    public int ExpiringHours { get; set; } = 24;
+
+    /// <summary>How many days the feed keeps events.</summary>
+    public int RetentionDays { get; set; } = 30;
+
+    public int MaxDevices { get; set; } = 10;
+}
+
+/// <summary>Push notifications to phones and laptops (Web Push). Needs a VAPID key pair: see docs/NOTIFICATIONS.md.</summary>
+public sealed class PushOptions
+{
+    public string? PublicKey { get; set; }
+    public string? PrivateKey { get; set; }
+
+    /// <summary>Who the push services should contact about this server: mailto:you@example.com or https://your.site.</summary>
+    public string? Subject { get; set; }
+
+    public bool Enabled => !string.IsNullOrWhiteSpace(PublicKey) && !string.IsNullOrWhiteSpace(PrivateKey);
 }
 
 /// <summary>

@@ -170,3 +170,18 @@ public sealed class InMemoryNotificationStore : NitroDrp.Api.Notifications.INoti
     public Task TouchSubscriptionAsync(string id, DateTimeOffset at, CancellationToken ct)
     { lock (_gate) { if (Subs.TryGetValue(id, out var s)) Subs[id] = s with { LastSentAt = at }; } return Task.CompletedTask; }
 }
+
+/// <summary>Records pushes instead of sending them; can be told to report a device gone or a failure.</summary>
+public sealed class FakePushTransport : NitroDrp.Api.Notifications.IPushTransport
+{
+    public bool Enabled { get; set; } = true;
+    public string? PublicKey { get; set; } = "test-public-key";
+    public List<(string Endpoint, string Payload)> Sent { get; } = [];
+    public Func<NitroDrp.Api.Notifications.PushSubscriptionRecord, NitroDrp.Api.Notifications.PushResult> Respond { get; set; } = _ => NitroDrp.Api.Notifications.PushResult.Sent;
+
+    public Task<NitroDrp.Api.Notifications.PushResult> SendAsync(NitroDrp.Api.Notifications.PushSubscriptionRecord sub, string payloadJson, CancellationToken ct)
+    {
+        lock (Sent) Sent.Add((sub.Endpoint, payloadJson));
+        return Task.FromResult(Respond(sub));
+    }
+}
