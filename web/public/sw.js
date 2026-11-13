@@ -4,6 +4,9 @@
 // It NEVER touches /api/ (links, passwords, upload plans), storage or download URLs, or any other site's
 // requests. Those always go straight to the network, so nothing private is ever stored by the app.
 //
+// It also shows push notifications (see docs/NOTIFICATIONS.md). A push carries only a short, generic message that
+// the server wrote: no file names, no addresses. Tapping one opens the app's notifications page.
+//
 // To force every phone to drop its saved copy after a release that needs it, bump VERSION.
 // (v2: the new logo. Icons are kept in the saved copy, so without a bump phones would keep showing the old one.)
 const VERSION = 'v2'
@@ -70,4 +73,40 @@ self.addEventListener('fetch', (event) => {
       ),
     )
   }
+})
+
+// ---- push notifications
+
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    /* not JSON: show the plain default below */
+  }
+  const text = (v, fallback, max) => (typeof v === 'string' && v.trim() ? v.slice(0, max) : fallback)
+  const title = text(data.title, 'NitroDrp', 80)
+  const body = text(data.body, 'Something happened.', 200)
+  const tag = text(data.tag, 'nitrodrp', 40)
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag, // a newer message of the same kind replaces the older one instead of stacking
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: '/notifications' },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL('/notifications', self.location.origin).href // always our own page, whatever the message said
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((all) => {
+      const open = all.find((c) => new URL(c.url).origin === self.location.origin)
+      if (open && 'focus' in open) return open.focus().then((c) => ('navigate' in c ? c.navigate(target) : c))
+      return self.clients.openWindow(target)
+    }),
+  )
 })
