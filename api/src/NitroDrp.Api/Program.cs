@@ -84,11 +84,8 @@ if (notify.Push.Enabled)
 {
     if (string.IsNullOrWhiteSpace(notify.Push.Subject) || !(notify.Push.Subject.StartsWith("mailto:") || notify.Push.Subject.StartsWith("https://")))
         throw new InvalidOperationException("NitroDrp:Notifications:Push:Subject must be mailto:you@example.com or https://your.site when push is on.");
-    try { _ = new WebPush.VapidDetails(notify.Push.Subject, notify.Push.PublicKey!, notify.Push.PrivateKey!); }
-    catch (Exception e) when (e is ArgumentException or FormatException or InvalidOperationException)
-    {
-        throw new InvalidOperationException("NitroDrp:Notifications:Push has an invalid VAPID key pair. Make a new one with deploy/make-vapid.sh.");
-    }
+    if (!WebPushProtocol.IsValidKeyPair(notify.Push.PublicKey, notify.Push.PrivateKey))
+        throw new InvalidOperationException("NitroDrp:Notifications:Push has an invalid VAPID key pair (they must be a matching pair). Make a new one with deploy/make-vapid.sh.");
     builder.Services.AddSingleton<IPushTransport>(sp => new WebPushTransport(notify.Push, new HttpClient { Timeout = TimeSpan.FromSeconds(15) }, sp.GetRequiredService<ILogger<WebPushTransport>>()));
 }
 else

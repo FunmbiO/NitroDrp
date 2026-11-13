@@ -204,4 +204,30 @@ public class NotificationApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         var kinds = (await View()).GetProperty("items").EnumerateArray().Select(x => x.GetProperty("kind").GetString()).Order().ToList();
         Assert.Equal(["downloaded", "limit_reached"], kinds);
     }
+
+    private static (string Pub, string Priv) Pair()
+    {
+        using var ec = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var p = ec.ExportParameters(true);
+        return (WebEncoders.Base64UrlEncode([4, .. p.Q.X!, .. p.Q.Y!]), WebEncoders.Base64UrlEncode(p.D!));
+    }
+
+    private HttpClient Start(string pub, string priv, string? subject) => factory.WithWebHostBuilder(b =>
+    {
+        b.UseSetting("NitroDrp:Notifications:Push:PublicKey", pub);
+        b.UseSetting("NitroDrp:Notifications:Push:PrivateKey", priv);
+        if (subject is not null) b.UseSetting("NitroDrp:Notifications:Push:Subject", subject);
+    }).CreateClient();
+
+    [Fact]
+    public void The_server_starts_with_a_good_key_pair_and_refuses_a_bad_setup()
+    {
+        var (pub, priv) = Pair();
+        var (otherPub, _) = Pair();
+        Start(pub, priv, "mailto:owner@example.com").Dispose();
+        Start(pub, priv, "https://drop.example.com").Dispose();
+        Assert.Throws<InvalidOperationException>(() => Start(otherPub, priv, "mailto:owner@example.com")); // keys that don't match
+        Assert.Throws<InvalidOperationException>(() => Start(pub, priv, null)); // no contact for the push services
+        Assert.Throws<InvalidOperationException>(() => Start(pub, priv, "owner@example.com")); // not mailto: or https://
+    }
 }
