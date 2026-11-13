@@ -19,6 +19,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public RecordingEdgeCache Edge { get; } = new();
     public FakeEmailSender Mail { get; } = new();
     public InMemoryPasskeyStore Passkeys { get; } = new();
+    public InMemoryNotificationStore Notes { get; } = new();
+    public FakePushTransport Push { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -38,6 +40,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IEdgeCache>();
             services.RemoveAll<NitroDrp.Api.Auth.IPasskeyStore>();
             services.AddSingleton<NitroDrp.Api.Auth.IPasskeyStore>(Passkeys);
+            services.RemoveAll<NitroDrp.Api.Notifications.INotificationStore>();
+            services.AddSingleton<NitroDrp.Api.Notifications.INotificationStore>(Notes);
+            services.RemoveAll<NitroDrp.Api.Notifications.IPushTransport>();
+            services.AddSingleton<NitroDrp.Api.Notifications.IPushTransport>(Push);
             services.RemoveAll<NitroDrp.Api.Email.IEmailSender>();
             services.AddSingleton<NitroDrp.Api.Email.IEmailSender>(Mail);
             services.AddSingleton<IEdgeCache>(Edge);

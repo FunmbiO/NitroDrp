@@ -10,6 +10,7 @@ using Fido2NetLib;
 using NitroDrp.Api.Auth;
 using NitroDrp.Api.Email;
 using NitroDrp.Api.Endpoints;
+using NitroDrp.Api.Notifications;
 using NitroDrp.Api.Services;
 using NitroDrp.Api.Storage;
 
@@ -75,6 +76,30 @@ else
 builder.Services.AddSingleton(ZipLinks.FromApiKey(opts.ApiKey, TimeProvider.System));
 builder.Services.AddSingleton(new ZipGate(Math.Max(1, opts.Limits.MaxConcurrentZips)));
 builder.Services.AddSingleton<ShareService>();
+
+// Notifications: the in-app feed is always on. Push to phones needs a VAPID key pair; the daily email needs email.
+var notify = opts.Notifications;
+builder.Services.AddSingleton<INotificationStore>(sp => new DynamoNotificationStore(sp.GetRequiredService<IAmazonDynamoDB>(), opts.Dynamo, Math.Max(1, notify.RetentionDays)));
+if (notify.Push.Enabled)
+{
+    if (string.IsNullOrWhiteSpace(notify.Push.Subject) || !(notify.Push.Subject.StartsWith("mailto:") || notify.Push.Subject.StartsWith("https://")))
+        throw new InvalidOperationException("NitroDrp:Notifications:Push:Subject must be mailto:you@example.com or https://your.site when push is on.");
+    try { _ = new WebPush.VapidDetails(notify.Push.Subject, notify.Push.PublicKey!, notify.Push.PrivateKey!); }
+    catch (Exception e) when (e is ArgumentException or FormatException or InvalidOperationException)
+    {
+        throw new InvalidOperationException("NitroDrp:Notifications:Push has an invalid VAPID key pair. Make a new one with deploy/make-vapid.sh.");
+    }
+    builder.Services.AddSingleton<IPushTransport>(sp => new WebPushTransport(notify.Push, new HttpClient { Timeout = TimeSpan.FromSeconds(15) }, sp.GetRequiredService<ILogger<WebPushTransport>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IPushTransport, NoPushTransport>();
+}
+builder.Services.AddSingleton<NotificationService>();
+builder.Services.AddSingleton<QueuedNotifier>();
+builder.Services.AddSingleton<INotifier>(sp => sp.GetRequiredService<QueuedNotifier>());
+builder.Services.AddSingleton<NotificationWorker>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationWorker>());
 
 // Signing in. The session machinery is always there (it just never finds a cookie when passkeys are off);
 // the passkey service itself exists only when switched on.
@@ -178,6 +203,7 @@ if (opts.Email.Enabled && opts.Email.AutoCreateIdentity)
 
 app.MapAuthEndpoints();
 app.MapShareEndpoints();
+app.MapNotificationEndpoints();
 app.Run();
 
 public partial class Program;
