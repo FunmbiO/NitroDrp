@@ -140,3 +140,33 @@ public sealed class InMemoryPasskeyStore : NitroDrp.Api.Auth.IPasskeyStore
         return Task.CompletedTask;
     }
 }
+
+public sealed class InMemoryNotificationStore : NitroDrp.Api.Notifications.INotificationStore
+{
+    private readonly object _gate = new();
+    public List<NitroDrp.Api.Notifications.NotificationEvent> Events { get; } = [];
+    public Dictionary<string, NitroDrp.Api.Notifications.PushSubscriptionRecord> Subs { get; } = [];
+    public HashSet<string> ExpiryNotices { get; } = [];
+    private NitroDrp.Api.Notifications.NotificationSettings _settings = NitroDrp.Api.Notifications.NotificationSettings.Default;
+
+    public Task AddEventAsync(NitroDrp.Api.Notifications.NotificationEvent e, CancellationToken ct) { lock (_gate) Events.Add(e); return Task.CompletedTask; }
+    public Task<IReadOnlyList<NitroDrp.Api.Notifications.NotificationEvent>> ListEventsAsync(int limit, CancellationToken ct)
+    { lock (_gate) return Task.FromResult<IReadOnlyList<NitroDrp.Api.Notifications.NotificationEvent>>(Events.OrderByDescending(e => e.At).Take(limit).ToList()); }
+    public Task<IReadOnlyList<NitroDrp.Api.Notifications.NotificationEvent>> ListEventsSinceAsync(DateTimeOffset since, CancellationToken ct)
+    { lock (_gate) return Task.FromResult<IReadOnlyList<NitroDrp.Api.Notifications.NotificationEvent>>(Events.Where(e => e.At >= since).OrderBy(e => e.At).ToList()); }
+    public Task ClearEventsAsync(CancellationToken ct) { lock (_gate) Events.Clear(); return Task.CompletedTask; }
+    public Task<NitroDrp.Api.Notifications.NotificationSettings> GetSettingsAsync(CancellationToken ct) { lock (_gate) return Task.FromResult(_settings); }
+    public Task SetLastReadAsync(DateTimeOffset at, CancellationToken ct) { lock (_gate) _settings = _settings with { LastReadAt = at }; return Task.CompletedTask; }
+    public Task SetDigestEnabledAsync(bool enabled, CancellationToken ct) { lock (_gate) _settings = _settings with { DigestEnabled = enabled }; return Task.CompletedTask; }
+    public Task<bool> TryClaimDigestAsync(string date, CancellationToken ct)
+    { lock (_gate) { if (_settings.LastDigestDate == date) return Task.FromResult(false); _settings = _settings with { LastDigestDate = date }; return Task.FromResult(true); } }
+    public Task<bool> TryClaimExpiryNoticeAsync(string token, DateTimeOffset forgetAfter, CancellationToken ct) { lock (_gate) return Task.FromResult(ExpiryNotices.Add(token)); }
+    public Task AddSubscriptionAsync(NitroDrp.Api.Notifications.PushSubscriptionRecord s, CancellationToken ct) { lock (_gate) Subs[s.Id] = s; return Task.CompletedTask; }
+    public Task<IReadOnlyList<NitroDrp.Api.Notifications.PushSubscriptionRecord>> ListSubscriptionsAsync(CancellationToken ct)
+    { lock (_gate) return Task.FromResult<IReadOnlyList<NitroDrp.Api.Notifications.PushSubscriptionRecord>>(Subs.Values.OrderBy(s => s.CreatedAt).ToList()); }
+    public Task<bool> RemoveSubscriptionAsync(string id, CancellationToken ct) { lock (_gate) return Task.FromResult(Subs.Remove(id)); }
+    public Task<bool> UpdateSubscriptionKindsAsync(string id, IReadOnlyList<string> kinds, CancellationToken ct)
+    { lock (_gate) { if (!Subs.TryGetValue(id, out var s)) return Task.FromResult(false); Subs[id] = s with { Kinds = kinds }; return Task.FromResult(true); } }
+    public Task TouchSubscriptionAsync(string id, DateTimeOffset at, CancellationToken ct)
+    { lock (_gate) { if (Subs.TryGetValue(id, out var s)) Subs[id] = s with { LastSentAt = at }; } return Task.CompletedTask; }
+}

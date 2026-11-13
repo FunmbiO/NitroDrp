@@ -16,6 +16,7 @@
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.513.4" />
     <PackageReference Include="AWSSDK.SimpleEmailV2" Version="3.7.509.10" />
     <PackageReference Include="Fido2" Version="4.3.3" />
+    <PackageReference Include="WebPush" Version="1.0.13" />
   </ItemGroup>
 
 </Project>

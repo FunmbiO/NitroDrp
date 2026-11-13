@@ -477,6 +477,11 @@
           "libsodium": "[1.0.20.1, 1.0.21)"
         }
       },
+      "Portable.BouncyCastle": {
+        "type": "Transitive",
+        "resolved": "1.9.0",
+        "contentHash": "eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw=="
+      },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
         "resolved": "10.0.15",
@@ -486,6 +491,14 @@
         "type": "Transitive",
         "resolved": "9.0.24",
         "contentHash": "SEfEvHu6qXcXoDsDKagddLDf8A9iHIhHUD0hGemdmwlP206KLLCI5ksskOpeXMgNpQCs2diB0fOBKcnjySHFUQ=="
+      },
+      "WebPush": {
+        "type": "Transitive",
+        "resolved": "1.0.13",
+        "contentHash": "Qyypsk6j+GqncCa/IgbmZLnL7DxqKFGz3jIdquGSLeiD3NtN+HPnIFBMwIJHffDU9ZEztTkaMMYxvW3PJxJL7Q==",
+        "dependencies": {
+          "Portable.BouncyCastle": "1.9.0"
+        }
       },
       "xunit.abstractions": {
         "type": "Transitive",
@@ -534,7 +547,8 @@
           "AWSSDK.DynamoDBv2": "[3.7.513.4, )",
           "AWSSDK.S3": "[3.7.511.8, )",
           "AWSSDK.SimpleEmailV2": "[3.7.509.10, )",
-          "Fido2": "[4.3.3, )"
+          "Fido2": "[4.3.3, )",
+          "WebPush": "[1.0.13, )"
         }
       }
     }
