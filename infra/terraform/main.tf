@@ -87,7 +87,7 @@ resource "aws_dynamodb_table" "shares" {
   }
 
   point_in_time_recovery {
-    enabled = false
+    enabled = true # restore to any second in the last 35 days if the table is damaged or deleted
   }
 }
 

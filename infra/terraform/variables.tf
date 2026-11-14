@@ -1,3 +1,9 @@
+variable "aws_account_id" {
+  description = "The only account Terraform may touch: Ready Set Build. Every AWS build for this project lives there."
+  type        = string
+  default     = "659500704122"
+}
+
 variable "region" {
   description = "AWS region for the bucket and table."
   type        = string
