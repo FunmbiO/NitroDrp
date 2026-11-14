@@ -1,3 +1,5 @@
+> **Note:** the move itself is done with plain AWS CLI commands in CloudShell (the Terraform in `infra/server` is untested). Only `infra/monitoring` is applied with Terraform. Run order and exact commands were given in the session; the steps below are the outline.
+
 # Moving the server into Ready Set Build
 
 Rule: **every AWS build lives in Ready Set Build (`659500704122`).** The Management Account (`062939323390`)
